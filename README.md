@@ -1,6 +1,6 @@
 # OIDC::Client
 
-This library was born out of a lack of support in the Perl language for the OpenID Connect protocol (OIDC), although it is inspired by [https://metacpan.org/pod/OIDC::Lite](OIDC::Lite) and [https://metacpan.org/pod/Mojolicious::Plugin::OAuth2](Mojolicious::Plugin::OAuth2).
+This library was born out of a lack of support in the Perl language for the OpenID Connect protocol (OIDC), although it is inspired by [OIDC::Lite](https://metacpan.org/pod/OIDC::Lite) and [Mojolicious::Plugin::OAuth2](https://metacpan.org/pod/Mojolicious::Plugin::OAuth2).
 
 It facilitates integration of the protocol for different types of application, with :
 
@@ -79,7 +79,7 @@ __PACKAGE__->setup(@plugin);
 ### API call with propagation of the security context (exchange token)
 
 ```perl
-  # Retrieving a web client (Mojo::UserAgent object)
+  # Retrieving a web client ([Mojo::UserAgent](https://metacpan.org/pod/Mojo::UserAgent) object)
   my $ua = try {
     $c->oidc->build_api_useragent('other_app_name')
   }
@@ -163,7 +163,7 @@ This is an example, see the detailed possibilities in : [configuration](configur
 
 ### Checking a token from an authorisation server
 
-For example, with an application using [https://metacpan.org/pod/Mojolicious::Plugin::OpenAPI](Mojolicious::Plugin::OpenAPI), you can define a security definition:
+For example, with an application using [Mojolicious::Plugin::OpenAPI](https://metacpan.org/pod/Mojolicious::Plugin::OpenAPI), you can define a security definition:
 
 ```perl
 use OIDC::Client::UserUtil qw(build_user_from_claims);
