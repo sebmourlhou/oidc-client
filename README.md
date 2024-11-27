@@ -79,7 +79,7 @@ __PACKAGE__->setup(@plugin);
 ### API call with propagation of the security context (exchange token)
 
 ```perl
-  # Retrieving a web client ([Mojo::UserAgent](https://metacpan.org/pod/Mojo::UserAgent) object)
+  # Retrieving a web client (Mojo::UserAgent object)
   my $ua = try {
     $c->oidc->build_api_useragent('other_app_name')
   }
