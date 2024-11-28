@@ -232,9 +232,7 @@ oidc_client:
     config => $self->ctx->conf->get(key => 'oidc_client'),
   );
 
-  # Token retrieval and vérification
   my $token = $oidc_client->get_token(grant_type => 'password');
-  $oidc_client->verify_token(token => $token->access_token);
 
   # Retrieving a web client (Mojo::UserAgent object)
   my $ua = $oidc_client->build_api_useragent(
