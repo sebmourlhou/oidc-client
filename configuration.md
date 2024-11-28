@@ -49,7 +49,7 @@ For an application, it's better to leave this parameter out and make exchange to
 
 Enables you to define, if required, a prefix common to the roles that will be ignored during a comparison test between a role to be verified and the list of user roles.
 
-For example, with the prefix configured: *MYAPP.*
+For example, with the prefix configured: `MYAPP.`
 
 ```perl
 my $can_access_app = $auth_user->has_role('USER');
