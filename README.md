@@ -10,10 +10,10 @@ It facilitates integration of the protocol for different types of application, w
 Supported features :
 
 - redirect the browser to the authorize URL to initiate an authorization code flow
-- get token(s) with grant types : **authorization_code**, **client_credentials**, **password** or **refresh_token**
+- get token(s) with grant types : *authorization_code*, *client_credentials*, *password* or *refresh_token*
 - token exchange
 - JWT token verification with support for automatic JWK key rotation
-- get the user information from the **userinfo** endpoint
+- get the user information from the *userinfo* endpoint
 - redirect the browser to the logout URL
 
 ## Catalyst Application

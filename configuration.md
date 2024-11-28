@@ -4,20 +4,20 @@
 
 Defines where the tokens are stored.
 
-Possible values (**session** by default) :
+Possible values (*session* by default) :
 
 - session: stored data persists between requests until the session expires.
-- stash: the stored data can only be accessed in the current request. This may be useful for an API which must validate the token in the **Authorization** header for each request (Autorisation Server).
+- stash: the stored data can only be accessed in the current request. This may be useful for an API which must validate the token in the *Authorization* header for each request (Authorization Server).
 
 ## authentication\_error\_path
 
 Relative path of the endpoint to which the browser is redirected if an error is returned by the provider during the callback to the application after an authentication attempt or if an error occurs when the token is retrieved in exchange for the code.
 
-If this path is not configured, an error, with the message configured in **authentication\_error\_message** or else a generic message, is launched with an HTTP 401 code.
+If this path is not configured, an error, with the message configured in *authentication\_error\_message* or else a generic message, is launched with an HTTP 401 code.
 
 ## authentication\_error\_message
 
-Message used to return an error if **authentication_error\_path** is not set.
+Message used to return an error if *authentication_error\_path* is not set.
 
 ## provider."provider".proxy\_detect
 
@@ -35,7 +35,7 @@ OIDC client ID supplied by your provider. Mandatory
 
 OIDC client secret supplied by your provider.
 
-If not present, the secret must be defined in the environment variable **OIDC\_${provider}\_SECRET**
+If not present, the secret must be defined in the environment variable *OIDC\_${provider}\_SECRET*
 
 ## provider."provider".audience
 
@@ -49,7 +49,7 @@ For an application, it's better to leave this parameter out and make exchange to
 
 Enables you to define, if required, a prefix common to the roles that will be ignored during a comparison test between a role to be verified and the list of user roles.
 
-For example, with the prefix configured: **MYAPP.**
+For example, with the prefix configured: *MYAPP.*
 
 ```perl
 my $can_access_app = $auth_user->has_role('USER');
@@ -65,7 +65,7 @@ Endpoint, which allows the library to retrieve the provider's metadata at the ti
 
 If it's not defined, the following parameters must be manually specified when required:
 
-- issuer: provider identifier which must correspond exactly to the **iss** claim of the tokens received
+- issuer: provider identifier which must correspond exactly to the *iss* claim of the tokens received
 - jwks\_url : endpoint for publishing the keys to be used to verify the signature of a JWT token
 - authorize\_url : endpoint from which an interaction takes place between the provider and the browser in order to authenticate the user
 - token_url : endpoint on which the backend exchanges an authorization code with a token or refreshes a token
@@ -80,7 +80,7 @@ Relative path of the endpoint used by the provider to redirect the user's browse
 
 ## provider."provider".signin\_redirect\_uri
 
-Alternative to **signin\_redirect\_path**
+Alternative to *signin\_redirect\_path*
 
 Absolute path to the endpoint used by the provider to redirect the user's browser to the application once authentication has been completed.
 
@@ -105,7 +105,7 @@ By default, the options passed are :
 
 ## provider."provider".jwt\_claim\_key
 
-Used to set the names of the attributes (claims) of the JWT token for creating the **identity** hashref.
+Used to set the names of the attributes (claims) of the JWT token for creating the *identity* hashref.
 
 By default, the library uses the names :
 
@@ -143,11 +143,11 @@ Can take one of these values:
 
 ## provider."provider".authorize\_endpoint\_extra\_params
 
-Allows you to define additional parameters to be sent to the provider when the **authorize** endpoint is called.
+Allows you to define additional parameters to be sent to the provider when the *authorize* endpoint is called.
 
 ## provider."provider".token\_endpoint\_grant\_type
 
-Defines the **grant_type** parameter to be sent to the provider when the **token** endpoint is called.
+Defines the *grant_type* parameter to be sent to the provider when the *token* endpoint is called.
 
 Can take one of these values:
 
@@ -155,26 +155,26 @@ Can take one of these values:
 - client_credentials
 - password
 
-By default, the **authorization_code** grant type is used.
+By default, the *authorization_code* grant type is used.
 
 ## provider."provider".token\_endpoint\_auth\_method
 
-Used to define the authentication method to be used when calling the **token** endpoint.
+Used to define the authentication method to be used when calling the *token* endpoint.
 
 Can take one of these values:
 
 - post: the client id and secret are sent in the POST body 
-- basic : the client id and the secret are sent in an **Authorization** header
+- basic : the client id and the secret are sent in an *Authorization* header
 
-By default, the **post** method is used.
+By default, the *post* method is used.
 
 ## provider."provider".username
 
-For a grant_type **password**, specify the technical account to be used.
+For a grant_type *password*, specify the technical account to be used.
 
 ## provider."provider".password
 
-For a grant_type **password**, specify the technical account password to be used.
+For a grant_type *password*, specify the technical account password to be used.
 
 ## provider."provider".logout\_redirect\_path
 
@@ -182,19 +182,19 @@ Relative path of the endpoint used by the provider to redirect the user's browse
 
 ## provider."provider".post\_logout\_redirect\_uri
 
-Alternative to **logout\_redirect\_path**
+Alternative to *logout\_redirect\_path*
 
 Absolute path to the endpoint used by the provider to redirect the user's browser to the application once the session has been cleaned up on the provider side.
 
 ## provider."provider".logout\_with\_id\_token
 
-Used to specify whether the token id should be sent to the provider when the **end_session** endpoint is called.
+Used to specify whether the token id should be sent to the provider when the *end_session* endpoint is called.
 
 True by default
 
 ## provider."provider".logout\_extra\_params
 
-Allows you to define additional parameters to be sent to the provider when the **end_session** endpoint is called.
+Allows you to define additional parameters to be sent to the provider when the *end_session* endpoint is called.
 
 ## provider."provider".mocked\_identity
 
