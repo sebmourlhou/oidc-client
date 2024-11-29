@@ -10,8 +10,8 @@ use FindBin qw($Bin);
 use lib "$Bin/lib";
 use OIDCClientTest qw(launch_tests);
 
-use Local::OIDC::Client::User;
-my $class = 'Local::OIDC::Client::UserUtil';
+use OIDC::Client::User;
+my $class = 'OIDC::Client::UserUtil';
 use_ok $class, qw(build_user_from_identity
                   build_user_from_mapping);
 
@@ -38,7 +38,7 @@ sub test_build_user_from_identity {
     my $user = build_user_from_identity(\%identity, $role_prefix);
 
     # Then
-    my $expected_user = Local::OIDC::Client::User->new(
+    my $expected_user = OIDC::Client::User->new(
       login       => 'my_login',
       lastname    => 'my_lastname',
       firstname   => 'my_firstname',
@@ -61,7 +61,7 @@ sub test_build_user_from_identity {
     my $user = build_user_from_identity(\%identity);
 
     # Then
-    my $expected_user = Local::OIDC::Client::User->new(
+    my $expected_user = OIDC::Client::User->new(
       login       => 'my_login',
       lastname    => undef,
       firstname   => undef,
@@ -99,7 +99,7 @@ sub test_build_user_from_mapping {
     my $user = build_user_from_mapping(\%data, \%mapping, $role_prefix);
 
     # Then
-    my $expected_user = Local::OIDC::Client::User->new(
+    my $expected_user = OIDC::Client::User->new(
       login       => 'my_login',
       lastname    => 'my_lastname',
       firstname   => 'my_firstname',
@@ -130,7 +130,7 @@ sub test_build_user_from_mapping {
     my $user = build_user_from_mapping(\%data, \%mapping);
 
     # Then
-    my $expected_user = Local::OIDC::Client::User->new(
+    my $expected_user = OIDC::Client::User->new(
       login       => 'my_login',
       lastname    => undef,
       firstname   => undef,

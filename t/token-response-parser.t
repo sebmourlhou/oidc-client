@@ -12,7 +12,7 @@ use FindBin qw($Bin);
 use lib "$Bin/lib";
 use OIDCClientTest qw(launch_tests);
 
-my $class = 'Local::OIDC::Client::TokenResponseParser';
+my $class = 'OIDC::Client::TokenResponseParser';
 use_ok $class;
 
 my $test = OIDCClientTest->new();
@@ -37,7 +37,7 @@ sub test_parse_ok {
     my $result = $response_parser->parse($mock_response);
 
     # Then
-    isa_ok($result, 'Local::OIDC::Client::Token');
+    isa_ok($result, 'OIDC::Client::Token');
     is($result->access_token, 'my_access_token',
        'expected result');
   };
@@ -55,7 +55,7 @@ sub test_parse_with_exception {
     # When - Then
     throws_ok {
       $response_parser->parse($mock_response)
-    } 'Local::OIDC::Client::Error::InvalidResponse',
+    } 'OIDC::Client::Error::InvalidResponse',
     'expected exception';
   };
 }

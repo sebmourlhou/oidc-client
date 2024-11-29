@@ -12,7 +12,7 @@ use FindBin qw($Bin);
 use lib "$Bin/lib";
 use OIDCClientTest qw(launch_tests);
 
-my $class = 'Local::OIDC::Client::ResponseParser';
+my $class = 'OIDC::Client::ResponseParser';
 use_ok $class;
 
 my $test = OIDCClientTest->new();
@@ -52,7 +52,7 @@ sub test_parse_with_invalid_response {
       $response_parser->parse($mock_response)
     } qr/Invalid response/,
     'expected error message';
-    isa_ok($@, 'Local::OIDC::Client::Error::InvalidResponse');
+    isa_ok($@, 'OIDC::Client::Error::InvalidResponse');
   };
 }
 
@@ -73,7 +73,7 @@ sub test_parse_with_provider_error {
       $response_parser->parse($mock_response)
     } qr/500/,
     'expected error message';
-    isa_ok($@, 'Local::OIDC::Client::Error::Provider');
+    isa_ok($@, 'OIDC::Client::Error::Provider');
   };
 }
 
@@ -95,7 +95,7 @@ sub test_parse_with_provider_error_and_json_response {
       $response_parser->parse($mock_response)
     } qr/error message \(error_description: error description\)/,
     'expected error message';
-    isa_ok($@, 'Local::OIDC::Client::Error::Provider');
+    isa_ok($@, 'OIDC::Client::Error::Provider');
   };
 }
 
@@ -115,6 +115,6 @@ sub test_parse_with_provider_error_and_without_json_response {
       $response_parser->parse($mock_response)
     } qr/401/,
     'expected error message';
-    isa_ok($@, 'Local::OIDC::Client::Error::Provider');
+    isa_ok($@, 'OIDC::Client::Error::Provider');
   };
 }

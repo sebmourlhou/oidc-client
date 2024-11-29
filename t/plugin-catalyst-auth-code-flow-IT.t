@@ -56,11 +56,11 @@ post('/token' => sub {
        }
      });
 
-my $mock_oidc_client = Test::MockModule->new('Local::OIDC::Client');
+my $mock_oidc_client = Test::MockModule->new('OIDC::Client');
 $mock_oidc_client->redefine('kid_keys' => sub { {} });
 $mock_oidc_client->redefine('user_agent' => app->ua);
 
-my $mock_plugin_main = Test::MockModule->new('Local::OIDC::Client::Plugin::Common::Main');
+my $mock_plugin_main = Test::MockModule->new('OIDC::Client::Plugin::Common::Main');
 $mock_plugin_main->redefine('_generate_uuid_string' => sub { 'fake_uuid' });
 
 my $mech = Test::WWW::Mechanize::Catalyst::WithContext->new( catalyst_app => 'MyCatalystApp' );

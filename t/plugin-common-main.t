@@ -9,15 +9,15 @@ use Test::Exception;
 use Test::MockObject;
 use Log::Any::Test;
 use Log::Any qw($log);
-use Local::OIDC::Client::Token;
-use Local::OIDC::Client::User;
+use OIDC::Client::Token;
+use OIDC::Client::User;
 use Mojo::UserAgent;
 
 use FindBin qw($Bin);
 use lib "$Bin/lib";
 use OIDCClientTest qw(launch_tests);
 
-my $class = 'Local::OIDC::Client::Plugin::Common::Main';
+my $class = 'OIDC::Client::Plugin::Common::Main';
 use_ok $class;
 
 my $test = OIDCClientTest->new();
@@ -162,7 +162,7 @@ sub test_get_token_with_provider_error {
       $obj->get_token();
     } qr/error from provider/,
       'expected exception';
-    isa_ok($@, 'Local::OIDC::Client::Error::Provider');
+    isa_ok($@, 'OIDC::Client::Error::Provider');
   };
 }
 
@@ -178,7 +178,7 @@ sub test_get_token_with_invalid_state_parameter {
       $obj->get_token();
     } qr/invalid state parameter/,
       'expected exception';
-    isa_ok($@, 'Local::OIDC::Client::Error::Authentication');
+    isa_ok($@, 'OIDC::Client::Error::Authentication');
   };
 
   subtest "get_token() without state parameter" => sub {
@@ -192,7 +192,7 @@ sub test_get_token_with_invalid_state_parameter {
       $obj->get_token();
     } qr/got '' but expected 'abc'/,
       'expected exception';
-    isa_ok($@, 'Local::OIDC::Client::Error::Authentication');
+    isa_ok($@, 'OIDC::Client::Error::Authentication');
   };
 
   subtest "get_token() with state parameter different from state in flash" => sub {
@@ -206,7 +206,7 @@ sub test_get_token_with_invalid_state_parameter {
       $obj->get_token();
     } qr/got 'aaa' but expected 'abc'/,
       'expected exception';
-    isa_ok($@, 'Local::OIDC::Client::Error::Authentication');
+    isa_ok($@, 'OIDC::Client::Error::Authentication');
   };
 }
 
@@ -1155,7 +1155,7 @@ sub build_object {
   my %config = %{ $params{config} || {} };
 
   my $mock_client = Test::MockObject->new();
-  $mock_client->set_isa('Local::OIDC::Client');
+  $mock_client->set_isa('OIDC::Client');
   $mock_client->mock(config         => sub { \%config });
   $mock_client->mock(auth_url       => sub { 'my_auth_url' });
   $mock_client->mock(logout_url     => sub { 'my_logout_url' });
@@ -1164,8 +1164,8 @@ sub build_object {
   $mock_client->mock(provider       => sub { 'my_provider' });
   $mock_client->mock(verify_token   => sub { \%claims });
   $mock_client->mock(jwt_claim_key  => sub { $config{jwt_claim_key} || \%default_jwt_claim_key });
-  $mock_client->mock(get_token      => sub { Local::OIDC::Client::Token->new(%token) });
-  $mock_client->mock(exchange_token => sub { Local::OIDC::Client::Token->new(%exchanged_token) });
+  $mock_client->mock(get_token      => sub { OIDC::Client::Token->new(%token) });
+  $mock_client->mock(exchange_token => sub { OIDC::Client::Token->new(%exchanged_token) });
   $mock_client->mock(build_api_useragent => sub { Mojo::UserAgent->new(); });
   $mock_client->mock(has_expired    => sub { 0 });
   $mock_client->mock(get_userinfo   => sub { {firstName => "John", lastName => 'Doe'} });

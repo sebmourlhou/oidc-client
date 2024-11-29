@@ -59,13 +59,13 @@ post('/token' => sub {
        }
      });
 
-my $mock_oidc_client = Test::MockModule->new('Local::OIDC::Client');
+my $mock_oidc_client = Test::MockModule->new('OIDC::Client');
 $mock_oidc_client->redefine('kid_keys' => sub { {} });
 
-my $mock_plugin_main = Test::MockModule->new('Local::OIDC::Client::Plugin::Common::Main');
+my $mock_plugin_main = Test::MockModule->new('OIDC::Client::Plugin::Common::Main');
 $mock_plugin_main->redefine('_generate_uuid_string' => sub { 'fake_uuid' });
 
-plugin 'Local::OIDC::Client::Plugin::Mojolicious' => {
+plugin 'OIDC::Client::Plugin::Mojolicious' => {
   authentication_error_path => '/error/401',
   provider => {
     my_provider => {

@@ -60,7 +60,7 @@ sub mock_response_parser {
   my ($self) = @_;
 
   my $mock_resp_parser = Test::MockObject->new();
-  $mock_resp_parser->set_isa('Local::OIDC::Client::ResponseParser');
+  $mock_resp_parser->set_isa('OIDC::Client::ResponseParser');
   $mock_resp_parser->mock(parse => sub { $_[1] });
 
   $self->mocked_response_parser($mock_resp_parser);
@@ -70,7 +70,7 @@ sub mock_token_response_parser {
   my ($self) = @_;
 
   my $mock_token_resp_parser = Test::MockObject->new();
-  $mock_token_resp_parser->set_isa('Local::OIDC::Client::TokenResponseParser');
+  $mock_token_resp_parser->set_isa('OIDC::Client::TokenResponseParser');
   $mock_token_resp_parser->mock(parse => sub { $_[1] });
 
   $self->mocked_token_response_parser($mock_token_resp_parser);
@@ -83,7 +83,7 @@ sub mock_decode_jwt {
     callback => { isa => 'CodeRef', optional => 1 },
   );
 
-  my $mock_crypt_jwt = Test::MockModule->new('Local::OIDC::Client');
+  my $mock_crypt_jwt = Test::MockModule->new('OIDC::Client');
 
   if (my $cb = $params{callback}) {
     $mock_crypt_jwt->redefine('decode_jwt' => $cb);

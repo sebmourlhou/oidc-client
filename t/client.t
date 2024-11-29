@@ -16,7 +16,7 @@ use FindBin qw($Bin);
 use lib "$Bin/lib";
 use OIDCClientTest qw(launch_tests);
 
-my $class = 'Local::OIDC::Client';
+my $class = 'OIDC::Client';
 use_ok $class;
 
 my $test = OIDCClientTest->new();
@@ -1212,7 +1212,7 @@ sub test_verify_token_with_standard_decode_exception {
       $client->verify_token(token => 'my_token');
     } qr/whatever/,
       'expected exception';
-    isa_ok($@, 'Local::OIDC::Client::Error::TokenValidation');
+    isa_ok($@, 'OIDC::Client::Error::TokenValidation');
   };
 }
 
@@ -1251,7 +1251,7 @@ sub test_verify_token_with_kid_keys_exception {
       $client->verify_token(token => 'my_token');
     } qr/JWE: kid_keys lookup failed/,
       'expected exception';
-    isa_ok($@, 'Local::OIDC::Client::Error::TokenValidation');
+    isa_ok($@, 'OIDC::Client::Error::TokenValidation');
   };
 }
 

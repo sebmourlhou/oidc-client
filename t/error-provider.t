@@ -10,7 +10,7 @@ use FindBin qw($Bin);
 use lib "$Bin/lib";
 use OIDCClientTest qw(launch_tests);
 
-my $class = 'Local::OIDC::Client::Error::Provider';
+my $class = 'OIDC::Client::Error::Provider';
 use_ok $class;
 
 my $test = OIDCClientTest->new();

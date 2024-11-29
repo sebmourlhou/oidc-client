@@ -12,7 +12,7 @@ use Catalyst qw/
     Session
     Session::Store::FastMmap
     Session::State::Cookie
-    +Local::OIDC::Client::Plugin::Catalyst
+    +OIDC::Client::Plugin::Catalyst
 /;
 
 use File::Basename 'dirname';
