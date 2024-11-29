@@ -1,6 +1,7 @@
 requires 'perl', 5.020000;
 requires 'Carp';
 requires 'Crypt::JWT';
+requires 'Data::UUID';
 requires 'List::Util';
 requires 'List::MoreUtils';
 requires 'Mojolicious';
