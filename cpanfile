@@ -12,8 +12,7 @@ requires 'Readonly';
 requires 'Try::Tiny';
 requires 'namespace::autoclean';
 
-suggests 'Catalyst';
-suggests 'Test::WWW::Mechanize::Catalyst::WithContext';
+suggests 'Catalyst::Runtime';
 
 test_requires 'Log::Any';
 test_requires 'Log::Any::Test';
@@ -23,5 +22,11 @@ test_requires 'Test::MockModule';
 test_requires 'Test::MockObject';
 test_requires 'Test::More';
 
-author_requires 'Catalyst';
+author_requires 'Catalyst::Runtime';
+author_requires 'Catalyst::Plugin::Session::Store::FastMmap';
+author_requires 'Catalyst::Plugin::Static::Simple';
 author_requires 'Test::WWW::Mechanize::Catalyst::WithContext';
+author_requires 'Catalyst::Plugin::ConfigLoader';
+author_requires 'Catalyst::View::JSON';
+author_requires 'Catalyst::Action::RenderView';
+author_requires 'Config::General';
