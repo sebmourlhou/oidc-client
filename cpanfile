@@ -1,4 +1,4 @@
-requires 'perl', 5.020000;
+requires 'perl', '5.20.0';
 requires 'Carp';
 requires 'Crypt::JWT';
 requires 'Data::UUID';
