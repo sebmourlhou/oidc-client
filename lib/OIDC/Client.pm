@@ -1131,3 +1131,13 @@ __PACKAGE__->meta->make_immutable;
 
 
 1;
+
+=head1 AUTHOR
+
+Sébastien Mourlhou
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) Sébastien Mourlhou
+
+This program is free software, you can redistribute it and/or modify it under the terms of the Artistic License version 2.0.
