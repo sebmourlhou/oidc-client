@@ -83,6 +83,25 @@ This is an example, see the detailed possibilities in : [configuration](configur
                  status   => 401);
     }
   });
+
+```
+### API call with propagation of the security context (exchange token)
+
+```perl
+  # Retrieving a web client (Mojo::UserAgent object)
+  my $ua = try {
+    $c->oidc->build_api_useragent('other_app_name')
+  }
+  catch {
+    $c->log->warn("Unable to exchange token : $_");
+    $c->render(template => 'error',
+               message  => "Authorization problem. Please try again after refreshing the page.",
+               status   => 403);
+    return;
+  } or return;
+
+  # Usual call to the API
+  my $res = $ua->get($url)->result;
 ```
 
 ### Checking a token from an Authorisation Server
@@ -128,24 +147,6 @@ $app->plugin(OpenAPI => {
     },
   }
 });
-```
-
-### API call with propagation of the security context (exchange token)
-
-```perl
-  # Retrieving a web client (Mojo::UserAgent object)
-  my $ua = try {
-    $c->oidc->build_api_useragent('other_app_name')
-  }
-  catch {
-    $c->log->warn("Unable to exchange token : $_");
-    return $c->render(template => 'error',
-                      message  => "Authorization problem. Please try again after refreshing the page.",
-                      status   => 403);
-  };
-
-  # Usual call to the API
-  my $res = $ua->get($url)->result;
 ```
 
 ## Catalyst Application
