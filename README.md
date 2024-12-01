@@ -122,7 +122,7 @@ $app->plugin(OpenAPI => {
       }
       catch {
         $c->app->log->warn("Token validation : $_");
-        $c->$cb("Token invalide ou incomplet");
+        $c->$cb("Invalid or incomplete token");
         return;
       } or return;
 
