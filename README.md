@@ -124,10 +124,7 @@ $app->plugin(OpenAPI => {
         $c->app->log->warn("Token validation : $_");
         $c->$cb("Token invalide ou incomplet");
         return;
-      };
-
-      $claims
-        or return;
+      } or return;
 
       my $userinfo = $c->oidc->get_userinfo();
       my $mapping  = $c->oidc->client->jwt_claim_key;
