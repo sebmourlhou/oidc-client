@@ -4,16 +4,18 @@ This library was born out of a lack of support in the Perl language for the Open
 
 It facilitates integration of the protocol for different types of application, with :
 
-- specific plugins for applications using the Catalyst or Mojolicious frameworks. Other plugins may be added in the future.
+- specific plugins for applications using the Mojolicious or Catalyst frameworks. Other plugins may be added in the future.
 - a module for use with a batch or script
 
 Supported features :
 
 - redirect the browser to the authorize URL to initiate an authorization code flow
-- get token(s) with grant types : *authorization_code*, *client_credentials*, *password* or *refresh_token*
-- token exchange
+- get the token(s) from the provider
+- session management : the tokens are stored and then retrieved from the session
+- refresh the access token if needed
 - JWT token verification with support for automatic JWK key rotation
 - get the user information from the *userinfo* endpoint
+- token exchange
 - redirect the browser to the logout URL
 
 ## Catalyst Application
@@ -85,8 +87,8 @@ __PACKAGE__->setup(@plugin);
   }
   catch {
     $c->log->warn("Unable to exchange token : $_");
-    MyApp::Exception::Authentication->throw(
-      error => "Authentication problem. Please try again after refreshing the page.",
+    MyApp::Exception::Authorization->throw(
+      error => "Authorization problem. Please try again after refreshing the page.",
     );
   };
 
@@ -161,7 +163,7 @@ This is an example, see the detailed possibilities in : [configuration](configur
   });
 ```
 
-### Checking a token from an authorisation server
+### Checking a token from an Authorisation Server
 
 For example, with an application using [Mojolicious::Plugin::OpenAPI](https://metacpan.org/pod/Mojolicious::Plugin::OpenAPI), you can define a security definition:
 
@@ -206,6 +208,24 @@ $app->plugin(OpenAPI => {
 });
 ```
 
+### API call with propagation of the security context (exchange token)
+
+```perl
+  # Retrieving a web client (Mojo::UserAgent object)
+  my $ua = try {
+    $c->oidc->build_api_useragent('other_app_name')
+  }
+  catch {
+    $c->log->warn("Unable to exchange token : $_");
+    return $c->render(template => 'error',
+                      message  => "Authorization problem. Please try again after refreshing the page.",
+                      status   => 401);
+  };
+
+  # Usual call to the API
+  my $res = $ua->get($url)->result;
+```
+
 ## Batch or script
 
 ### Configuration
@@ -247,4 +267,4 @@ oidc_client:
 ## Limitations
 
 - no multi-audience support
-- no support for Implicit and Hybrid flows (applicable to front-end applications only)
+- no support for Implicit and Hybrid flows (applicable to front-end applications only and deprecated)
