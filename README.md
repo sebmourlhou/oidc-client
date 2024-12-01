@@ -11,90 +11,12 @@ Supported features :
 
 - redirect the browser to the authorize URL to initiate an authorization code flow
 - get the token(s) from the provider
-- session management : the tokens are stored and then retrieved from the session
+- session management : the tokens are stored and later retrieved from the session
 - refresh the access token if needed
 - JWT token verification with support for automatic JWK key rotation
 - get the user information from the *userinfo* endpoint
 - token exchange
 - redirect the browser to the logout URL
-
-## Catalyst Application
-
-### Configuration
-
-Section to be added to your configuration file :
-
-```
-<oidc_client>
-    <provider provider_name>
-        id                    my-app-id
-        secret                xxxxxxxxx
-        well_known_url        https://yourprovider.com/oauth2/.well-known/openid-configuration
-        signin_redirect_path  /oidc/login/callback
-        scope                 openid profile email
-        expiration_leeway     20
-        <jwt_claim_key>
-            issuer      iss
-            expiration  exp
-            audience    aud
-            subject     sub
-            login       sub
-            lastname    lastName
-            firstname   firstName
-            email       email
-        </jwt_claim_key>
-        <audience_alias other_app_name>
-            audience    other-app-audience
-        </audience_alias>
-    </provider>
-</oidc_client>
-```
-
-This is an example, see the detailed possibilities in : [configuration](configuration.md)
-
-### Setup the plugin when the application is launched
-
-```perl
-my @plugin = (
-  ...
-  '+OIDC::Client::Plugin::Catalyst',
-);
-__PACKAGE__->setup(@plugin);
-```
-
-### Authentication
-
-```perl
-  if (my $identity = $c->oidc->get_stored_identity()) {
-    $c->request->remote_user($identity->{login});
-  }
-  elsif (uc($c->request->method) eq 'GET' && !$c->is_ajax_request()) {
-    $c->oidc->redirect_to_authorize();
-  }
-  else {
-    MyApp::Exception::Authentication->throw(
-      error => "You have been logged out. Please try again after refreshing the page.",
-    );
-  }
-```
-
-### API call with propagation of the security context (exchange token)
-
-```perl
-  # Retrieving a web client (Mojo::UserAgent object)
-  my $ua = try {
-    $c->oidc->build_api_useragent('other_app_name')
-  }
-  catch {
-    $c->log->warn("Unable to exchange token : $_");
-    MyApp::Exception::Authorization->throw(
-      error => "Authorization problem. Please try again after refreshing the page.",
-    );
-  };
-
-  # Usual call to the API
-  my $res = $ua->get($url)->result;
-```
 
 ## Mojolicious Application
 
@@ -219,7 +141,85 @@ $app->plugin(OpenAPI => {
     $c->log->warn("Unable to exchange token : $_");
     return $c->render(template => 'error',
                       message  => "Authorization problem. Please try again after refreshing the page.",
-                      status   => 401);
+                      status   => 403);
+  };
+
+  # Usual call to the API
+  my $res = $ua->get($url)->result;
+```
+
+## Catalyst Application
+
+### Configuration
+
+Section to be added to your configuration file :
+
+```
+<oidc_client>
+    <provider provider_name>
+        id                    my-app-id
+        secret                xxxxxxxxx
+        well_known_url        https://yourprovider.com/oauth2/.well-known/openid-configuration
+        signin_redirect_path  /oidc/login/callback
+        scope                 openid profile email
+        expiration_leeway     20
+        <jwt_claim_key>
+            issuer      iss
+            expiration  exp
+            audience    aud
+            subject     sub
+            login       sub
+            lastname    lastName
+            firstname   firstName
+            email       email
+        </jwt_claim_key>
+        <audience_alias other_app_name>
+            audience    other-app-audience
+        </audience_alias>
+    </provider>
+</oidc_client>
+```
+
+This is an example, see the detailed possibilities in : [configuration](configuration.md)
+
+### Setup the plugin when the application is launched
+
+```perl
+my @plugin = (
+  ...
+  '+OIDC::Client::Plugin::Catalyst',
+);
+__PACKAGE__->setup(@plugin);
+```
+
+### Authentication
+
+```perl
+  if (my $identity = $c->oidc->get_stored_identity()) {
+    $c->request->remote_user($identity->{login});
+  }
+  elsif (uc($c->request->method) eq 'GET' && !$c->is_ajax_request()) {
+    $c->oidc->redirect_to_authorize();
+  }
+  else {
+    MyApp::Exception::Authentication->throw(
+      error => "You have been logged out. Please try again after refreshing the page.",
+    );
+  }
+```
+
+### API call with propagation of the security context (exchange token)
+
+```perl
+  # Retrieving a web client (Mojo::UserAgent object)
+  my $ua = try {
+    $c->oidc->build_api_useragent('other_app_name')
+  }
+  catch {
+    $c->log->warn("Unable to exchange token : $_");
+    MyApp::Exception::Authorization->throw(
+      error => "Authorization problem. Please try again after refreshing the page.",
+    );
   };
 
   # Usual call to the API
