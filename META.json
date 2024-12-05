@@ -58,6 +58,9 @@
       },
       "test" : {
          "requires" : {
+            "File::Spec" : "0",
+            "IO::Handle" : "0",
+            "IPC::Open3" : "0",
             "Log::Any" : "0",
             "Log::Any::Test" : "0",
             "Test::Deep" : "0",
@@ -81,8 +84,8 @@
       }
    },
    "version" : "0.01",
-   "x_generated_by_perl" : "v5.34.3",
-   "x_serialization_backend" : "Cpanel::JSON::XS version 4.38",
+   "x_generated_by_perl" : "v5.28.1",
+   "x_serialization_backend" : "Cpanel::JSON::XS version 4.37",
    "x_spdx_expression" : "Artistic-2.0"
 }
 

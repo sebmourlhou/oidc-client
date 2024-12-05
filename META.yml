@@ -3,6 +3,9 @@ abstract: 'OpenID Connect Client'
 author:
   - 'Sébastien Mourlhou'
 build_requires:
+  File::Spec: '0'
+  IO::Handle: '0'
+  IPC::Open3: '0'
   Log::Any: '0'
   Log::Any::Test: '0'
   Test::Deep: '0'
@@ -38,6 +41,6 @@ resources:
   homepage: https://github.com/sebmourlhou/oidc-client
   repository: https://github.com/sebmourlhou/oidc-client.git
 version: '0.01'
-x_generated_by_perl: v5.34.3
-x_serialization_backend: 'YAML::Tiny version 1.74'
+x_generated_by_perl: v5.28.1
+x_serialization_backend: 'YAML::Tiny version 1.73'
 x_spdx_expression: Artistic-2.0
