@@ -46,7 +46,7 @@ OIDC::Client - OpenID Connect Client
     log    => $your_app->log,
   );
 
-  my $id_token = $client->get_token(
+  my $token = $client->get_token(
     code         => $code,
     redirect_uri => q{http://yourapp/oidc/callback},
   );
@@ -827,20 +827,25 @@ sub exchange_token {
 =head2 build_api_useragent( %args )
 
   my $ua = $client->build_api_useragent(
-    token_type => $token_type,
     token      => $token,
+    token_type => $token_type,
   );
 
 Builds a web client (L<Mojo::UserAgent> object) that will have the given token
 in the authorization header for each request.
 
-The parameters are:
+The optional parameters are:
 
 =over 2
 
 =item token
 
 Content of the access token to send to the other application.
+
+If it is not passed as parameter, the method L<get_token> is invoked
+without any parameter to retrieve the token from the provider.
+This can be useful if the client is configured for a password grant
+or a client credentials grant.
 
 =item token_type
 
@@ -854,17 +859,28 @@ sub build_api_useragent {
   my $self = shift;
   my (%params) = validated_hash(
     \@_,
-    token      => { isa => 'Str', optional => 0 },
+    token      => { isa => 'Str', optional => 1 },
     token_type => { isa => 'Maybe[Str]', optional => 1 },
   );
 
-  my $token_type = $params{token_type} || $self->default_token_type;
+  my ($token, $token_type);
+
+  if ($token = $params{token}) {
+    $token_type = $params{token_type};
+  }
+  else {
+    my $token_obj = $self->get_token();
+    $token      = $token_obj->access_token;
+    $token_type = $token_obj->token_type;
+  }
+
+  $token_type ||= $self->default_token_type;
 
   my $ua = Mojo::UserAgent->new();
 
   $ua->on(start => sub {
     my ($ua, $tx) = @_;
-    $tx->req->headers->authorization("$token_type $params{token}");
+    $tx->req->headers->authorization("$token_type $token");
   });
 
   return $ua;

@@ -661,7 +661,7 @@ sub test_get_token_authorization_code {
   # Prepare
   $test->mock_user_agent(
     to_mock => {
-      post => { token => 'whatever' },
+      post => { access_token => 'my_access_token' },
     }
   );
   $test->mock_token_response_parser();
@@ -690,8 +690,8 @@ sub test_get_token_authorization_code {
     );
 
     # Then
-    cmp_deeply($token, { token => 'whatever' },
-               'expected token object');
+    is($token->access_token, 'my_access_token',
+       'expected access token');
 
     my %expected_args = (
       grant_type    => 'authorization_code',
@@ -739,8 +739,8 @@ sub test_get_token_authorization_code {
     );
 
     # Then
-    cmp_deeply($token, { token => 'whatever' },
-               'expected token object');
+    is($token->access_token, 'my_access_token',
+       'expected access token');
 
     my %expected_args = (
       grant_type    => 'authorization_code',
@@ -762,7 +762,7 @@ sub test_get_token_client_credentials {
   # Prepare
   $test->mock_user_agent(
     to_mock => {
-      post => { token => 'whatever' },
+      post => { access_token => 'my_access_token' },
     }
   );
   $test->mock_token_response_parser();
@@ -791,8 +791,8 @@ sub test_get_token_client_credentials {
     );
 
     # Then
-    cmp_deeply($token, { token => 'whatever' },
-               'expected token object');
+    is($token->access_token, 'my_access_token',
+       'expected access token');
 
     my %expected_args = (
       grant_type    => 'client_credentials',
@@ -830,8 +830,8 @@ sub test_get_token_client_credentials {
     my $token = $client->get_token();
 
     # Then
-    cmp_deeply($token, { token => 'whatever' },
-               'expected token object');
+    is($token->access_token, 'my_access_token',
+       'expected access token');
 
     my %expected_args = (
       grant_type    => 'client_credentials',
@@ -852,7 +852,7 @@ sub test_get_token_password {
   # Prepare
   $test->mock_user_agent(
     to_mock => {
-      post => { token => 'whatever' },
+      post => { access_token => 'my_access_token' },
     }
   );
   $test->mock_token_response_parser();
@@ -883,8 +883,8 @@ sub test_get_token_password {
     );
 
     # Then
-    cmp_deeply($token, { token => 'whatever' },
-               'expected token object');
+    is($token->access_token, 'my_access_token',
+       'expected access token');
 
     my %expected_args = (
       grant_type    => 'password',
@@ -926,8 +926,8 @@ sub test_get_token_password {
     my $token = $client->get_token();
 
     # Then
-    cmp_deeply($token, { token => 'whatever' },
-               'expected token object');
+    is($token->access_token, 'my_access_token',
+       'expected access token');
 
     my %expected_args = (
       grant_type => 'password',
@@ -950,7 +950,7 @@ sub test_get_token_refresh_token {
   # Prepare
   $test->mock_user_agent(
     to_mock => {
-      post => { token => 'whatever' },
+      post => { access_token => 'my_access_token' },
     }
   );
   $test->mock_token_response_parser();
@@ -978,8 +978,8 @@ sub test_get_token_refresh_token {
     );
 
     # Then
-    cmp_deeply($token, { token => 'whatever' },
-               'expected token object');
+    is($token->access_token, 'my_access_token',
+       'expected access token');
 
     my %expected_args = (
       grant_type    => 'refresh_token',
@@ -1019,8 +1019,8 @@ sub test_get_token_refresh_token {
     );
 
     # Then
-    cmp_deeply($token, { token => 'whatever' },
-               'expected token object');
+    is($token->access_token, 'my_access_token',
+       'expected access token');
 
     my %expected_args = (
       grant_type    => 'refresh_token',
@@ -1562,7 +1562,7 @@ sub test_exchange_token {
   # Prepare
   $test->mock_user_agent(
     to_mock => {
-      post => { token => 'whatever' },
+      post => { access_token => 'my_access_token' },
     }
   );
   $test->mock_token_response_parser();
@@ -1590,8 +1590,8 @@ sub test_exchange_token {
     );
 
     # Then
-    cmp_deeply($exchanged_token, { token => 'whatever' },
-               'expected token object');
+    is($exchanged_token->access_token, 'my_access_token',
+       'expected access token');
 
     my %expected_args = (
       client_id          => 'my_client_id',
@@ -1630,8 +1630,8 @@ sub test_exchange_token {
     );
 
     # Then
-    cmp_deeply($exchanged_token, { token => 'whatever' },
-               'expected token object');
+    is($exchanged_token->access_token, 'my_access_token',
+       'expected access token');
 
     my %expected_args = (
       client_id          => 'my_client_id',
@@ -1676,8 +1676,8 @@ sub test_exchange_token {
     );
 
     # Then
-    cmp_deeply($exchanged_token, { token => 'whatever' },
-               'expected token object');
+    is($exchanged_token->access_token, 'my_access_token',
+       'expected access token');
 
     my %expected_args = (
       client_id          => 'my_client_id',
@@ -1695,7 +1695,7 @@ sub test_exchange_token {
 }
 
 sub test_build_api_useragent {
-  subtest "build_api_useragent()" => sub {
+  subtest "build_api_useragent() with token parameter" => sub {
 
     # Given
     my $client = $class->new(
@@ -1718,6 +1718,48 @@ sub test_build_api_useragent {
 
     # Then
     isa_ok($ua, 'Mojo::UserAgent');
+    my $tx = $ua->build_tx(GET => 'localhost');
+    $tx = $ua->start($tx);
+    is($tx->req->headers->authorization, 'my_token_type my_token');
+  };
+
+  subtest "build_api_useragent() without token parameter" => sub {
+
+    # Prepare
+    $test->mock_user_agent(
+      to_mock => {
+        post => { access_token => 'my_access_token' },
+      }
+    );
+    $test->mock_token_response_parser();
+
+    # Given
+    my $client = $class->new(
+      log      => $log,
+      user_agent            => $test->mocked_user_agent,
+      token_response_parser => $test->mocked_token_response_parser,
+      kid_keys => {},
+      config => {
+        provider                  => 'my_provider',
+        id                        => 'my_client_id',
+        secret                    => 'my_client_secret',
+        audience                  => 'my_audience',
+        scope                     => 'roles',
+        token_endpoint_grant_type => 'password',
+        username                  => 'TSTUSER',
+        password                  => 'XXXXXXX',
+      },
+      provider_metadata => { token_url => 'https://my-provider/token' },
+    );
+
+    # When
+    my $ua = $client->build_api_useragent();
+
+    # Then
+    isa_ok($ua, 'Mojo::UserAgent');
+    my $tx = $ua->build_tx(GET => 'localhost');
+    $tx = $ua->start($tx);
+    is($tx->req->headers->authorization, 'Bearer my_access_token');
   };
 }
 

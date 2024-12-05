@@ -7,6 +7,7 @@ use MooseX::Params::Validate;
 use List::Util qw(shuffle any);
 use Test::MockObject;
 use Test::MockModule;
+use OIDC::Client::Token;
 
 Moose::Exporter->setup_import_methods(as_is => [qw/launch_tests/]);
 
@@ -71,7 +72,7 @@ sub mock_token_response_parser {
 
   my $mock_token_resp_parser = Test::MockObject->new();
   $mock_token_resp_parser->set_isa('OIDC::Client::TokenResponseParser');
-  $mock_token_resp_parser->mock(parse => sub { $_[1] });
+  $mock_token_resp_parser->mock(parse => sub { OIDC::Client::Token->new($_[1]) });
 
   $self->mocked_token_response_parser($mock_token_resp_parser);
 }
