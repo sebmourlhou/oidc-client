@@ -1,11 +1,11 @@
-package OIDC::Client::Plugin::Mojolicious;
+package Mojolicious::Plugin::OIDC;
 use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Carp qw(croak);
 use Clone qw(clone);
 use Try::Tiny;
 use OIDC::Client;
-use OIDC::Client::Plugin::Common::Main;
+use OIDC::Client::Plugin;
 use OIDC::Client::Error::Authentication;
 
 has '_oidc_config';
@@ -45,10 +45,10 @@ sub register ($self, $app, $config) {
   $app->helper('oidc' => sub { $self->_helper_oidc(@_) });
 }
 
-# "oidc" entry point for application (see methods in OIDC::Client::Plugin::Common::Main)
+# "oidc" entry point for application (see methods in OIDC::Client::Plugin)
 sub _helper_oidc ($self, $c, %options) {
 
-  return OIDC::Client::Plugin::Common::Main->new(
+  return OIDC::Client::Plugin->new(
     log             => $c->app->log,
     store_mode      => $self->_oidc_config->{store_mode} || 'session',
     request_params  => $c->req->params->to_hash,

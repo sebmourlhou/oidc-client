@@ -62,10 +62,10 @@ post('/token' => sub {
 my $mock_oidc_client = Test::MockModule->new('OIDC::Client');
 $mock_oidc_client->redefine('kid_keys' => sub { {} });
 
-my $mock_plugin_main = Test::MockModule->new('OIDC::Client::Plugin::Common::Main');
-$mock_plugin_main->redefine('_generate_uuid_string' => sub { 'fake_uuid' });
+my $mock_plugin = Test::MockModule->new('OIDC::Client::Plugin');
+$mock_plugin->redefine('_generate_uuid_string' => sub { 'fake_uuid' });
 
-plugin 'OIDC::Client::Plugin::Mojolicious' => {
+plugin 'OIDC' => {
   authentication_error_path => '/error/401',
   provider => {
     my_provider => {

@@ -55,7 +55,7 @@ This is an example, see the detailed possibilities in : [configuration](configur
 ### Setup the plugin when the application is launched
 
 ```perl
-  $app->plugin('OIDC::Client::Plugin::Mojolicious');
+  $app->plugin('OIDC');
 ```
 
 ### Authentication
@@ -185,7 +185,7 @@ This is an example, see the detailed possibilities in : [configuration](configur
 ```perl
 my @plugin = (
   ...
-  '+OIDC::Client::Plugin::Catalyst',
+  'OIDC',
 );
 __PACKAGE__->setup(@plugin);
 ```

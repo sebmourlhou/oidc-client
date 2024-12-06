@@ -1,4 +1,4 @@
-package OIDC::Client::Plugin::Catalyst;
+package Catalyst::Plugin::OIDC;
 use utf8;
 use Moose;
 use namespace::autoclean;
@@ -12,7 +12,7 @@ use Clone qw(clone);
 use List::Util qw(first);
 use Try::Tiny;
 use OIDC::Client;
-use OIDC::Client::Plugin::Common::Main;
+use OIDC::Client::Plugin;
 use OIDC::Client::Error::Authentication;
 
 __PACKAGE__->mk_classdata('_oidc_config');
@@ -62,10 +62,10 @@ sub setup_finalize ($app) {
   $app->_oidc_client_by_provider(\%client_by_provider);
 }
 
-# entry point for application (see methods in OIDC::Client::Plugin::Common::Main)
+# entry point for application (see methods in OIDC::Client::Plugin)
 sub oidc ($c, %options) {
 
-  return OIDC::Client::Plugin::Common::Main->new(
+  return OIDC::Client::Plugin->new(
     log             => $c->log,
     store_mode      => $c->_oidc_config->{store_mode} || 'session',
     request_params  => $c->req->params,

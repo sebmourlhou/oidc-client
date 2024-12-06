@@ -1,4 +1,4 @@
-package OIDC::Client::Plugin::Common::Main;
+package OIDC::Client::Plugin;
 use 5.014;
 use utf8;
 use Moose;
@@ -21,13 +21,12 @@ with 'OIDC::Client::Role::LoggerWrapper';
 
 =head1 NAME
 
-OIDC::Client::Plugin::Common::Main - Main class for the plugins
+OIDC::Client::Plugin - Main class for the plugins
 
 =head1 DESCRIPTION
 
-Main class instanciated for the current request by the OIDC plugin
-(L<OIDC::Client::Plugin::Catalyst>,
-L<OIDC::Client::Plugin::Mojolicious>, etc...).
+Main class instanciated for the current request by the application plugin
+(L<Mojolicious::Plugin::OIDC> or L<Catalyst::Plugin::OIDC>).
 
 It contains all the methods available in the application.
 
