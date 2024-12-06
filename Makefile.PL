@@ -18,6 +18,7 @@ my %WriteMakefileArgs = (
   "NAME" => "OIDC::Client",
   "PREREQ_PM" => {
     "Carp" => 0,
+    "Clone" => 0,
     "Crypt::JWT" => 0,
     "Data::UUID" => 0,
     "List::MoreUtils" => 0,
@@ -27,6 +28,7 @@ my %WriteMakefileArgs = (
     "Moose::Util::TypeConstraints" => 0,
     "MooseX::Params::Validate" => 0,
     "Readonly" => 0,
+    "Throwable::Error" => 0,
     "Try::Tiny" => 0,
     "namespace::autoclean" => 0
   },
@@ -51,6 +53,7 @@ my %WriteMakefileArgs = (
 
 my %FallbackPrereqs = (
   "Carp" => 0,
+  "Clone" => 0,
   "Crypt::JWT" => 0,
   "Data::UUID" => 0,
   "File::Spec" => 0,
@@ -70,6 +73,7 @@ my %FallbackPrereqs = (
   "Test::MockModule" => 0,
   "Test::MockObject" => 0,
   "Test::More" => 0,
+  "Throwable::Error" => 0,
   "Try::Tiny" => 0,
   "namespace::autoclean" => 0
 );

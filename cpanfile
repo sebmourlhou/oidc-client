@@ -1,5 +1,6 @@
 requires 'perl', '5.20.0';
 requires 'Carp';
+requires 'Clone';
 requires 'Crypt::JWT';
 requires 'Data::UUID';
 requires 'List::Util';
@@ -9,6 +10,7 @@ requires 'Moose';
 requires 'Moose::Util::TypeConstraints';
 requires 'MooseX::Params::Validate';
 requires 'Readonly';
+requires 'Throwable::Error';
 requires 'Try::Tiny';
 requires 'namespace::autoclean';
 
