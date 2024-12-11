@@ -19,7 +19,7 @@ lib/OIDC/Client/Error/TokenValidation.pm
 lib/OIDC/Client/Plugin.pm
 lib/OIDC/Client/ResponseParser.pm
 lib/OIDC/Client/Role/LoggerWrapper.pm
-lib/OIDC/Client/Token.pm
+lib/OIDC/Client/TokenResponse.pm
 lib/OIDC/Client/TokenResponseParser.pm
 lib/OIDC/Client/User.pm
 lib/OIDC/Client/UserUtil.pm

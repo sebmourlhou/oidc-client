@@ -1,4 +1,4 @@
-package OIDC::Client::Token;
+package OIDC::Client::TokenResponse;
 use utf8;
 use Moose;
 use namespace::autoclean;
@@ -43,7 +43,7 @@ has 'scope' => (
 
 =head1 NAME
 
-OIDC::Client::Token - OIDC token response
+OIDC::Client::TokenResponse - OIDC token response
 
 =head1 DESCRIPTION
 

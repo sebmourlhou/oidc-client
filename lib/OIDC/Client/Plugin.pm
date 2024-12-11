@@ -269,12 +269,12 @@ sub get_token {
 
   my $redirect_uri = $params{redirect_uri} || $self->login_redirect_uri;
 
-  my $token_obj = $self->client->get_token(
+  my $token_response = $self->client->get_token(
     code => $self->request_params->{code},
     $redirect_uri ? (redirect_uri => $redirect_uri) : (),
   );
 
-  if (my $id_token = $token_obj->id_token) {
+  if (my $id_token = $token_response->id_token) {
     my $claims_id_token = $self->client->verify_token(
       token             => $id_token,
       expected_audience => $self->client->id,
@@ -294,10 +294,10 @@ sub get_token {
 
   $self->_store_access_token(
     audience      => $self->client->audience,
-    access_token  => $token_obj->access_token,
-    refresh_token => $token_obj->refresh_token,
-    token_type    => $token_obj->token_type,
-    expires_at    => $self->_get_expiration_time(token => $token_obj),
+    access_token  => $token_response->access_token,
+    refresh_token => $token_response->refresh_token,
+    token_type    => $token_response->token_type,
+    expires_at    => $self->_get_expiration_time(token_response => $token_response),
   );
   $self->log_msg(debug => "OIDC: access token has been stored");
 
@@ -307,7 +307,7 @@ sub get_token {
 
 =head2 refresh_access_token( $audience_alias )
 
-  my $access_token_obj = $c->oidc->refresh_access_token( $audience_alias );
+  my $stored_access_token = $c->oidc->refresh_access_token( $audience_alias );
 
 Refreshes a token (usually because it has expired) for the default audience (token
 for the current application) or for the audience corresponding to a given alias
@@ -351,17 +351,17 @@ sub refresh_access_token {
     return;
   }
 
-  my $token_obj = $self->client->get_token(
+  my $token_response = $self->client->get_token(
     grant_type    => 'refresh_token',
     refresh_token => $refresh_token,
   );
 
   $self->_store_access_token(
     audience      => $audience,
-    access_token  => $token_obj->access_token,
-    refresh_token => $token_obj->refresh_token,
-    token_type    => $token_obj->token_type,
-    expires_at    => $self->_get_expiration_time(token => $token_obj),
+    access_token  => $token_response->access_token,
+    refresh_token => $token_response->refresh_token,
+    token_type    => $token_response->token_type,
+    expires_at    => $self->_get_expiration_time(token_response => $token_response),
   );
 
   $self->log_msg(debug => "OIDC: token has been refreshed and stored");
@@ -372,7 +372,7 @@ sub refresh_access_token {
 
 =head2 exchange_token( $audience_alias )
 
-  my $exchanged_token_obj = $c->oidc->exchange_token($audience_alias);
+  my $stored_exchanged_token = $c->oidc->exchange_token($audience_alias);
 
 Exchange the access token received during the user's login, for an access token
 that is accepted by a different OIDC application and stores it in the session by default
@@ -405,17 +405,17 @@ sub exchange_token {
   my $access_token = $self->get_valid_access_token()
     or croak("OIDC: cannot retrieve the access token");
 
-  my $exchanged_token_obj = $self->client->exchange_token(
+  my $exchanged_token_response = $self->client->exchange_token(
     token    => $access_token->{token},
     audience => $audience,
   );
 
   $self->_store_access_token(
     audience      => $audience,
-    access_token  => $exchanged_token_obj->access_token,
-    refresh_token => $exchanged_token_obj->refresh_token,
-    token_type    => $exchanged_token_obj->token_type,
-    expires_at    => $self->_get_expiration_time(token => $exchanged_token_obj),
+    access_token  => $exchanged_token_response->access_token,
+    refresh_token => $exchanged_token_response->refresh_token,
+    token_type    => $exchanged_token_response->token_type,
+    expires_at    => $self->_get_expiration_time(token_response => $exchanged_token_response),
   );
 
   $self->log_msg(debug => "OIDC: token has been exchanged and stored");
@@ -646,11 +646,10 @@ sub has_access_token_expired {
 
 =head2 get_valid_access_token( $audience_alias )
 
-  my $token = $c->oidc->get_valid_access_token( $audience_alias );
+  my $stored_token = $c->oidc->get_valid_access_token( $audience_alias );
 
-Returns a valid (not expired) token for the default audience (token for the current
-application) or for the audience corresponding to a given alias (exchanged token
-for another application).
+Returns a valid (not expired) token object (hashref) for the default audience
+or for the audience corresponding to a given alias.
 
 The token can be retrieved from the store or after a refresh.
 
@@ -836,8 +835,8 @@ sub _get_expiration_time {
   my $self = shift;
   my %params = validated_hash(
     \@_,
-    token  => { isa => 'OIDC::Client::Token', optional => 1 },
-    claims => { isa => 'HashRef', optional => 1 },
+    token_response  => { isa => 'OIDC::Client::TokenResponse', optional => 1 },
+    claims          => { isa => 'HashRef', optional => 1 },
   );
 
   if (my $claims = $params{claims}) {
@@ -847,8 +846,8 @@ sub _get_expiration_time {
     return $expiration_time if defined $expiration_time;
   }
 
-  if (my $token = $params{token}) {
-    return time + $token->expires_in if defined $token->expires_in;
+  if (my $token_response = $params{token_response}) {
+    return time + $token_response->expires_in if defined $token_response->expires_in;
   }
 
   return;

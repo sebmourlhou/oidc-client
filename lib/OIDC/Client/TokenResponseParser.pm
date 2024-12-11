@@ -4,7 +4,7 @@ use Moose;
 extends 'OIDC::Client::ResponseParser';
 use namespace::autoclean;
 
-use OIDC::Client::Token;
+use OIDC::Client::TokenResponse;
 
 around 'parse' => sub {
   my $orig = shift;
@@ -12,7 +12,7 @@ around 'parse' => sub {
 
   my $result = $self->$orig(@_);
 
-  return OIDC::Client::Token->new($result);
+  return OIDC::Client::TokenResponse->new($result);
 };
 
 __PACKAGE__->meta->make_immutable;

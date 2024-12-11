@@ -9,7 +9,7 @@ use Test::Exception;
 use Test::MockObject;
 use Log::Any::Test;
 use Log::Any qw($log);
-use OIDC::Client::Token;
+use OIDC::Client::TokenResponse;
 use OIDC::Client::User;
 use Mojo::UserAgent;
 
@@ -1164,8 +1164,8 @@ sub build_object {
   $mock_client->mock(provider       => sub { 'my_provider' });
   $mock_client->mock(verify_token   => sub { \%claims });
   $mock_client->mock(jwt_claim_key  => sub { $config{jwt_claim_key} || \%default_jwt_claim_key });
-  $mock_client->mock(get_token      => sub { OIDC::Client::Token->new(%token) });
-  $mock_client->mock(exchange_token => sub { OIDC::Client::Token->new(%exchanged_token) });
+  $mock_client->mock(get_token      => sub { OIDC::Client::TokenResponse->new(%token) });
+  $mock_client->mock(exchange_token => sub { OIDC::Client::TokenResponse->new(%exchanged_token) });
   $mock_client->mock(build_api_useragent => sub { Mojo::UserAgent->new(); });
   $mock_client->mock(has_expired    => sub { 0 });
   $mock_client->mock(get_userinfo   => sub { {firstName => "John", lastName => 'Doe'} });

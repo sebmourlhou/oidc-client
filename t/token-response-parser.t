@@ -37,7 +37,7 @@ sub test_parse_ok {
     my $result = $response_parser->parse($mock_response);
 
     # Then
-    isa_ok($result, 'OIDC::Client::Token');
+    isa_ok($result, 'OIDC::Client::TokenResponse');
     is($result->access_token, 'my_access_token',
        'expected result');
   };

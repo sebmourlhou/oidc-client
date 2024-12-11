@@ -684,13 +684,13 @@ sub test_get_token_authorization_code {
     );
 
     # When
-    my $token = $client->get_token(
+    my $token_response = $client->get_token(
       code         => 'my_code',
       redirect_uri => 'my_redirect_uri'
     );
 
     # Then
-    is($token->access_token, 'my_access_token',
+    is($token_response->access_token, 'my_access_token',
        'expected access token');
 
     my %expected_args = (
@@ -734,12 +734,12 @@ sub test_get_token_authorization_code {
     );
 
     # When
-    my $token = $client->get_token(
+    my $token_response = $client->get_token(
       code => 'my_code',
     );
 
     # Then
-    is($token->access_token, 'my_access_token',
+    is($token_response->access_token, 'my_access_token',
        'expected access token');
 
     my %expected_args = (
@@ -784,14 +784,14 @@ sub test_get_token_client_credentials {
     );
 
     # When
-    my $token = $client->get_token(
+    my $token_response = $client->get_token(
       grant_type => 'client_credentials',
       scope      => 'my_scope',
       audience   => 'my_audience',
     );
 
     # Then
-    is($token->access_token, 'my_access_token',
+    is($token_response->access_token, 'my_access_token',
        'expected access token');
 
     my %expected_args = (
@@ -827,10 +827,10 @@ sub test_get_token_client_credentials {
     );
 
     # When
-    my $token = $client->get_token();
+    my $token_response = $client->get_token();
 
     # Then
-    is($token->access_token, 'my_access_token',
+    is($token_response->access_token, 'my_access_token',
        'expected access token');
 
     my %expected_args = (
@@ -874,7 +874,7 @@ sub test_get_token_password {
     );
 
     # When
-    my $token = $client->get_token(
+    my $token_response = $client->get_token(
       grant_type => 'password',
       username   => 'my_username',
       password   => 'my_password',
@@ -883,7 +883,7 @@ sub test_get_token_password {
     );
 
     # Then
-    is($token->access_token, 'my_access_token',
+    is($token_response->access_token, 'my_access_token',
        'expected access token');
 
     my %expected_args = (
@@ -923,10 +923,10 @@ sub test_get_token_password {
     );
 
     # When
-    my $token = $client->get_token();
+    my $token_response = $client->get_token();
 
     # Then
-    is($token->access_token, 'my_access_token',
+    is($token_response->access_token, 'my_access_token',
        'expected access token');
 
     my %expected_args = (
@@ -972,13 +972,13 @@ sub test_get_token_refresh_token {
     );
 
     # When
-    my $token = $client->get_token(
+    my $token_response = $client->get_token(
       grant_type    => 'refresh_token',
       refresh_token => 'my_refresh_token',
     );
 
     # Then
-    is($token->access_token, 'my_access_token',
+    is($token_response->access_token, 'my_access_token',
        'expected access token');
 
     my %expected_args = (
@@ -1013,13 +1013,13 @@ sub test_get_token_refresh_token {
     );
 
     # When
-    my $token = $client->get_token(
+    my $token_response = $client->get_token(
       grant_type    => 'refresh_token',
       refresh_token => 'my_refresh_token',
     );
 
     # Then
-    is($token->access_token, 'my_access_token',
+    is($token_response->access_token, 'my_access_token',
        'expected access token');
 
     my %expected_args = (
@@ -1077,12 +1077,12 @@ sub test_verify_token {
     $test->mock_decode_jwt(claims => \%claims);
 
     # When
-    my $token = $client->verify_token(
+    my $token_claims = $client->verify_token(
       token => 'my_token',
     );
 
     # Then
-    cmp_deeply($token, \%claims,
+    cmp_deeply($token_claims, \%claims,
                'expected claims');
   };
 
@@ -1115,13 +1115,13 @@ sub test_verify_token {
     $test->mock_decode_jwt(claims => \%claims);
 
     # When
-    my $token = $client->verify_token(
+    my $token_claims = $client->verify_token(
       token             => 'my_token',
       expected_audience => 'my_audience',
     );
 
     # Then
-    cmp_deeply($token, \%claims,
+    cmp_deeply($token_claims, \%claims,
                'expected claims');
   };
 
@@ -1156,13 +1156,13 @@ sub test_verify_token {
     $test->mock_decode_jwt(claims => \%claims);
 
     # When
-    my $token = $client->verify_token(
+    my $token_claims = $client->verify_token(
       token             => 'my_token',
       expected_subject  => 'my_subject',
     );
 
     # Then
-    cmp_deeply($token, \%claims,
+    cmp_deeply($token_claims, \%claims,
                'expected claims');
   };
 
@@ -1297,12 +1297,12 @@ sub test_verify_token_renewing_kid_keys {
     );
 
     # When
-    my $token = $client->verify_token(
+    my $token_claims = $client->verify_token(
       token => 'my_token',
     );
 
     # Then
-    cmp_deeply($token, \%claims,
+    cmp_deeply($token_claims, \%claims,
                'expected claims');
 
     cmp_deeply([ $test->mocked_user_agent->next_call() ],

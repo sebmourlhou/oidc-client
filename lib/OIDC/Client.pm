@@ -46,7 +46,7 @@ OIDC::Client - OpenID Connect Client
     log    => $your_app->log,
   );
 
-  my $token = $client->get_token(
+  my $token_response = $client->get_token(
     code         => $code,
     redirect_uri => q{http://yourapp/oidc/callback},
   );
@@ -391,13 +391,13 @@ sub auth_url {
 
 =head2 get_token( %args )
 
-  my $token = $client->get_token(
+  my $token_response = $client->get_token(
     code         => $code,
     redirect_uri => q{http://yourapp/oidc/callback},
   );
 
 Fetch token(s) from an OAuth2/OIDC provider and returns a
-L<OIDC::Client::Token> object.
+L<OIDC::Client::TokenResponse> object.
 
 This method doesn't execute any verification. Call the L<verify_token>
 method to do so.
@@ -671,8 +671,8 @@ sub has_expired {
 =head2 get_userinfo( %args )
 
   my $userinfo = $client->get_userinfo(
-    access_token => $token->{token},
-    token_type   => $token->{token_type},
+    access_token => $stored_token->{token},
+    token_type   => $stored_token->{token_type},
   );
 
 Get and returns the user information from an OAuth2/OIDC provider.
@@ -765,7 +765,7 @@ sub get_scope_for_audience {
 
 =head2 exchange_token( %args )
 
-  my $exchanged_token_object = $client->exchange_token(
+  my $exchanged_token_response = $client->exchange_token(
     token    => $token,
     audience => $audience,
   );
@@ -773,7 +773,7 @@ sub get_scope_for_audience {
 Exchange a token, obtained through OIDC authentication, for a token that
 is accepted by a different OIDC application.
 
-Returns a L<OIDC::Client::Token> object.
+Returns a L<OIDC::Client::TokenResponse> object.
 
 The parameters are:
 
@@ -869,9 +869,9 @@ sub build_api_useragent {
     $token_type = $params{token_type};
   }
   else {
-    my $token_obj = $self->get_token();
-    $token      = $token_obj->access_token;
-    $token_type = $token_obj->token_type;
+    my $token_response = $self->get_token();
+    $token      = $token_response->access_token;
+    $token_type = $token_response->token_type;
   }
 
   $token_type ||= $self->default_token_type;
