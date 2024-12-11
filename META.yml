@@ -8,6 +8,7 @@ build_requires:
   IPC::Open3: '0'
   Log::Any: '0'
   Log::Any::Test: '0'
+  Module::Load: '0'
   Test::Deep: '0'
   Test::Exception: '0'
   Test::MockModule: '0'

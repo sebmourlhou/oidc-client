@@ -18,6 +18,7 @@ suggests 'Catalyst::Runtime';
 
 test_requires 'Log::Any';
 test_requires 'Log::Any::Test';
+test_requires 'Module::Load';
 test_requires 'Test::Deep';
 test_requires 'Test::Exception';
 test_requires 'Test::MockModule';
