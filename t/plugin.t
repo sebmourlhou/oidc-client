@@ -267,8 +267,8 @@ sub test_get_token_ok {
   };
 }
 
-sub test_refresh_access_token_with_exceptions {
-  subtest "refresh_access_token() with unknown_audience" => sub {
+sub test_refresh_token_with_exceptions {
+  subtest "refresh_token() with unknown_audience" => sub {
 
     # Given
     my $obj = build_object();
@@ -276,24 +276,24 @@ sub test_refresh_access_token_with_exceptions {
 
     # When - Then
     throws_ok {
-      $obj->refresh_access_token('alias_audience');
+      $obj->refresh_token('alias_audience');
     } qr/no audience for alias 'alias_audience'/,
       'expected exception';
   };
 
-  subtest "refresh_access_token() without stored access token" => sub {
+  subtest "refresh_token() without stored access token" => sub {
 
     # Given
     my $obj = build_object();
 
     # When - Then
     throws_ok {
-      $obj->refresh_access_token();
+      $obj->refresh_token();
     } qr/no access token has been stored/,
       'expected exception';
   };
 
-  subtest "refresh_access_token() without stored refresh token" => sub {
+  subtest "refresh_token() without stored refresh token" => sub {
 
     # Given
     my $obj = build_object();
@@ -303,13 +303,13 @@ sub test_refresh_access_token_with_exceptions {
     );
 
     # When - Then
-    is($obj->refresh_access_token(), undef,
+    is($obj->refresh_token(), undef,
        'expected result');
   };
 }
 
-sub test_refresh_access_token_ok {
-  subtest "refresh_access_token() ok" => sub {
+sub test_refresh_token_ok {
+  subtest "refresh_token() ok" => sub {
 
     # Given
     my $obj = build_object();
@@ -324,7 +324,7 @@ sub test_refresh_access_token_ok {
     );
 
     # When
-    $obj->refresh_access_token();
+    $obj->refresh_token();
 
     # Then
     my %expected_stored_access_token = (

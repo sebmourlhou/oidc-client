@@ -305,9 +305,9 @@ sub get_token {
 }
 
 
-=head2 refresh_access_token( $audience_alias )
+=head2 refresh_token( $audience_alias )
 
-  my $stored_access_token = $c->oidc->refresh_access_token( $audience_alias );
+  my $stored_access_token = $c->oidc->refresh_token( $audience_alias );
 
 Refreshes a token (usually because it has expired) for the default audience (token
 for the current application) or for the audience corresponding to a given alias
@@ -331,7 +331,7 @@ Alias configured for the audience of the other application.
 
 =cut
 
-sub refresh_access_token {
+sub refresh_token {
   my $self = shift;
   my ($audience_alias) = pos_validated_list(\@_, { isa => 'Maybe[Str]', optional => 1 });
 
@@ -734,7 +734,7 @@ sub get_valid_access_token {
 
   if ($self->client->has_expired($stored_token->{expires_at})) {
     $self->log_msg(debug => "OIDC: access token has expired for audience '$audience'");
-    return $self->refresh_access_token($audience_alias);
+    return $self->refresh_token($audience_alias);
   }
   else {
     $self->log_msg(debug => "OIDC: access token for audience '$audience' has been retrieved from store");
