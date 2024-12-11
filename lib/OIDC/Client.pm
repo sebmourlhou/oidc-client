@@ -1133,12 +1133,22 @@ sub _check_claims_configuration {
 sub _check_audiences_configuration {
   my $self = shift;
 
-  my @possible_audiences
-    = grep { $_ } $self->audience,
-                  map { $_->{audience} } (values %{ $self->config->{audience_alias} || {} });
+  my %config_audience_alias = %{ $self->config->{audience_alias} || {} };
+
+  my @possible_audiences = grep { $_ } $self->audience,
+                                       map { $_->{audience} } values %config_audience_alias;
 
   if (my @duplicates_audiences = duplicates(@possible_audiences)) {
     croak(sprintf('OIDC: these configured audiences are duplicated: %s', join(', ', @duplicates_audiences)));
+  }
+
+  foreach my $audience_alias (keys %config_audience_alias) {
+    my @config_audience = %{$config_audience_alias{$audience_alias} || {}};
+    validated_hash(
+      \@config_audience,
+      audience => { isa => 'Str', optional => 0 },
+      scope    => { isa => 'Str | ArrayRef[Str]', optional => 1 },
+    );
   }
 }
 
