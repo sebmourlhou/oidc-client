@@ -429,7 +429,7 @@ sub exchange_token {
   my $claims = $c->oidc->verify_token();
 
 Verifies the JWT access token received in the Authorization header of the current request.
-Throws an exception if an error occurs. Otherwise, returns the claims.
+Throws an exception if an error occurs. Otherwise, stores the token and returns the claims.
 
 To bypass the token verification in local environment, you can configure the C<mocked_claims>
 entry (hashref) to be returned by this method.
@@ -443,7 +443,7 @@ sub verify_token {
     return $mock;
   }
 
-  my $token = $self->_get_token_from_authorization_header()
+  my $token = $self->get_token_from_authorization_header()
     or croak("OIDC: no token in authorization header");
 
   my $claims = $self->client->verify_token(token => $token);
@@ -455,6 +455,29 @@ sub verify_token {
   );
 
   return $claims;
+}
+
+
+=head2 get_token_from_authorization_header()
+
+  my $token = $c->oidc->get_token_from_authorization_header();
+
+Returns the token received in the Authorization header of the current request,
+or returns undef if there is no token in this header.
+
+=cut
+
+sub get_token_from_authorization_header {
+  my $self = shift;
+
+  my $authorization = $self->request_headers->{Authorization}
+    or return;
+
+  my $token_type = $self->client->default_token_type;
+
+  my ($token) = $authorization =~ /^$token_type\s+([^\s]+)/i;
+
+  return $token;
 }
 
 
@@ -870,20 +893,6 @@ sub _check_state_parameter {
       "OIDC: invalid state parameter (got '$state' but expected '$expected_state')"
     );
   }
-}
-
-
-sub _get_token_from_authorization_header {
-  my $self = shift;
-
-  my $authorization = $self->request_headers->{Authorization}
-    or return;
-
-  my $token_type = $self->client->default_token_type;
-
-  my ($token) = $authorization =~ /^$token_type\s+([^\s]+)/i;
-
-  return $token;
 }
 
 

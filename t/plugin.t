@@ -560,6 +560,38 @@ sub test_verify_token {
   };
 }
 
+sub test_get_token_from_authorization_header {
+  subtest "get_token_from_authorization_header() with token" => sub {
+
+    # Given
+    my $obj = build_object(
+      request_headers => { Authorization => 'bearer abcd12' }
+    );
+
+    # When
+    my $token = $obj->get_token_from_authorization_header();
+
+    # Then
+    is($token, 'abcd12',
+       'expected token')
+  };
+
+  subtest "get_token_from_authorization_header() without token" => sub {
+
+    # Given
+    my $obj = build_object(
+      request_headers => {}
+    );
+
+    # When
+    my $token = $obj->get_token_from_authorization_header();
+
+    # Then
+    is($token, undef,
+       'no token : returns undef')
+  };
+}
+
 sub test_get_userinfo {
   subtest "get_userinfo()" => sub {
 
