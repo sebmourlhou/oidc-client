@@ -13,7 +13,7 @@ Possible values (*session* by default) :
 
 Relative path of the endpoint to which the browser is redirected if an error is returned by the provider during the callback to the application after an authentication attempt or if an error occurs when the token is retrieved in exchange for the code.
 
-If this path is not configured, an error, with the message configured in *authentication\_error\_message* or else a generic message, is launched with an HTTP 401 code.
+If this path is not configured, an error, with the message configured in *authentication\_error\_message* or else a generic message, is thrown with an HTTP 401 code.
 
 ## authentication\_error\_message
 
@@ -25,7 +25,7 @@ If true, detects the proxy server based on environment variables.
 
 ## provider."provider".user\_agent
 
-Change of user agent name.
+Changes the user agent name.
 
 ## provider."provider".id
 
@@ -39,7 +39,7 @@ If not present, the secret must be defined in the environment variable *OIDC\_${
 
 ## provider."provider".audience
 
-Used to specify to the provider for whom the access token is intended.
+Specifies to the provider for whom the access token is intended.
 
 If this parameter is omitted, the access token returned by the provider is intended for your OIDC client (useful for making exchange tokens).
 
@@ -47,21 +47,21 @@ For an application, it's better to leave this parameter out and make exchange to
 
 ## provider."provider".role\_prefix
 
-Enables you to define, if required, a prefix common to the roles that will be ignored during a comparison test between a role to be verified and the list of user roles.
+Defines a prefix common to the roles that will be ignored during a comparison test between a role to be verified and the list of user roles.
 
-For example, with the prefix configured: `MYAPP.`
+For example, with `MYAPP.` prefix, you can do :
 
 ```perl
 my $can_access_app = $auth_user->has_role('USER');
 ```
-au lieu de :
+instead of :
 ```perl
 my $can_access_app = $auth_user->has_role('MYAPP.USER');
 ```
 
 ## provider."provider".well\_known\_url
 
-Endpoint, which allows the library to retrieve the provider's metadata at the time of instantiation of the OIDC client only.
+Endpoint which allows the library to retrieve the provider's metadata at the time of instantiation of the OIDC client only.
 
 If it's not defined, the following parameters must be manually specified when required:
 
@@ -96,9 +96,9 @@ Number of seconds of leeway for a token to be considered expired before it actua
 
 ## provider."provider".decode\_jwt\_options
 
-Options to be transferred to the library [Crypt::JWT](https://metacpan.org/pod/Crypt::JWT) used to validate a token.
+Options to be transferred to the library [Crypt::JWT](https://metacpan.org/pod/Crypt::JWT#decode_jwt) used to validate a token.
 
-By default, the options passed are :
+By default, the options are :
 
 - verify_exp: 1 (the 'exp' claim must be present)
 - leeway: 30 (seconds margin, used for verifying the various timestamps)
@@ -122,7 +122,7 @@ By default, the library uses the names :
 
 Audience configuration.
 
-Allows you to give an alias to an audience rather than using the technical identifier.
+Gives an alias to an audience rather than using the technical identifier.
 
 For example :
 
@@ -131,6 +131,16 @@ For example :
     audience    other-app-audience
 </audience_alias>
 ```
+
+## provider."provider".audience\_alias.audience
+
+Audience to be used for this audience alias.
+
+## provider."provider".audience\_alias.scope
+
+List of scopes to be sent for this audience alias.
+
+Can be an array of strings or a string with space separators.
 
 ## provider."provider".authorize\_endpoint\_response\_mode
 
@@ -143,7 +153,7 @@ Can take one of these values:
 
 ## provider."provider".authorize\_endpoint\_extra\_params
 
-Allows you to define additional parameters to be sent to the provider when the *authorize* endpoint is called.
+Defines additional parameters to be sent to the provider when the *authorize* endpoint is called.
 
 ## provider."provider".token\_endpoint\_grant\_type
 
@@ -159,7 +169,7 @@ By default, the *authorization_code* grant type is used.
 
 ## provider."provider".token\_endpoint\_auth\_method
 
-Used to define the authentication method to be used when calling the *token* endpoint.
+Defines the authentication method to be used when calling the *token* endpoint.
 
 Can take one of these values:
 
@@ -170,11 +180,11 @@ By default, the *post* method is used.
 
 ## provider."provider".username
 
-For a grant_type *password*, specify the technical account to be used.
+For a grant_type *password*, specifies the technical account to be used.
 
 ## provider."provider".password
 
-For a grant_type *password*, specify the technical account password to be used.
+For a grant_type *password*, specifies the technical account password to be used.
 
 ## provider."provider".logout\_redirect\_path
 
@@ -187,14 +197,13 @@ Alternative to *logout\_redirect\_path*
 Absolute path to the endpoint used by the provider to redirect the user's browser to the application once the session has been cleaned up on the provider side.
 
 ## provider."provider".logout\_with\_id\_token
-
-Used to specify whether the token id should be sent to the provider when the *end_session* endpoint is called.
+Specifies whether the token id should be sent to the provider when the *end_session* endpoint is called.
 
 True by default
 
 ## provider."provider".logout\_extra\_params
 
-Allows you to define additional parameters to be sent to the provider when the *end_session* endpoint is called.
+Defines additional parameters to be sent to the provider when the *end_session* endpoint is called.
 
 ## provider."provider".mocked\_identity
 
