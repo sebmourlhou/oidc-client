@@ -4,6 +4,18 @@ use Moose;
 extends 'OIDC::Client::Error';
 use namespace::autoclean;
 
+=encoding utf8
+
+=head1 NAME
+
+OIDC::Client::Error::Provider
+
+=head1 DESCRIPTION
+
+Error class for a problem returned by the provider.
+
+=cut
+
 has '+message' => (
   builder => '_build_message',
   lazy    => 1,

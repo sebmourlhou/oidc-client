@@ -8,10 +8,35 @@ use OIDC::Client;
 use OIDC::Client::Plugin;
 use OIDC::Client::Error::Authentication;
 
+=encoding utf8
+
+=head1 NAME
+
+Mojolicious::Plugin::OIDC - Mojolicious plugin for OIDC protocol integration
+
+=head1 DESCRIPTION
+
+This plugin makes it easy to integrate the OpenID Connect protocol
+into a Mojolicious application.
+
+=cut
+
 has '_oidc_config';
 has '_oidc_client_by_provider';
 
-# code executed once when the application is loaded
+
+=head1 METHODS
+
+=head2 register
+
+Code executed once when the application is loaded.
+
+Depending on the configuration, creates and keeps in memory one or more clients
+(L<OIDC::Client> stateless objects) and automatically adds the callback routes
+to the application.
+
+=cut
+
 sub register ($self, $app, $config) {
 
   keys %$config
@@ -45,7 +70,17 @@ sub register ($self, $app, $config) {
   $app->helper('oidc' => sub { $self->_helper_oidc(@_) });
 }
 
-# "oidc" entry point for application (see methods in OIDC::Client::Plugin)
+
+=head2 oidc
+
+Creates and returns an instance of L<OIDC::Client::Plugin> with the data
+from the current request and session.
+
+This is the application's entry point to the library. Please see the
+L<OIDC::Client::Plugin> documentation to find out what methods are available.
+
+=cut
+
 sub _helper_oidc ($self, $c, %options) {
 
   return OIDC::Client::Plugin->new(
@@ -118,5 +153,145 @@ sub _get_client_for_provider ($self, $provider) {
 
   return $client;
 }
+
+=head1 CONFIGURATION
+
+Section to be added to your configuration file :
+
+  oidc_client => {
+    provider => {
+      provider_name => {
+        id                   => 'my-app-id',
+        secret               => 'xxxxxxxxx',
+        well_known_url       => 'https://yourprovider.com/oauth2/.well-known/openid-configuration',
+        signin_redirect_path => '/oidc/login/callback',
+        scope                => 'openid profile roles email',
+        expiration_leeway    => 20,
+        jwt_claim_key => {
+          issuer     => 'iss',
+          expiration => 'exp',
+          audience   => 'aud',
+          subject    => 'sub',
+          login      => 'sub',
+          lastname   => 'lastName',
+          firstname  => 'firstName',
+          email      => 'email',
+          roles      => 'roles',
+        },
+        audience_alias => {
+          other_app_name => {
+            audience => 'other-app-audience',
+          }
+        }
+      }
+    }
+  }
+
+This is an example, see the detailed possibilities in L<OIDC::Client::Config>.
+
+=head1 SAMPLES
+
+Here are some samples by category. Although you will have to adapt them to your needs,
+they should be a good starting point.
+
+=head2 Setup
+
+To setup the plugin when the application is launched :
+
+  $app->plugin('OIDC');
+
+=head2 Authentication
+
+To authenticate the end-user :
+
+  $app->hook(before_dispatch => sub {
+    my $c = shift;
+
+    my $path = $c->req->url->path;
+
+    # Public routes
+    return if $path =~ m[^/oidc/]
+           || $path =~ m[^/error/];
+
+    # Authentication
+    if (my $identity = $c->oidc->get_stored_identity()) {
+      $c->remote_user($identity->{login});
+    }
+    elsif (uc($c->req->method) eq 'GET' && !$c->is_ajax_request()) {
+      $c->oidc->redirect_to_authorize();
+    }
+    else {
+      $c->render(template => 'error',
+                 message  => "You have been logged out. Please try again after refreshing the page.",
+                 status   => 401);
+    }
+  });
+
+=head2 API call
+
+To make an API call with propagation of the security context (token exchange) :
+
+  # Retrieving a web client (Mojo::UserAgent object)
+  my $ua = try {
+    $c->oidc->build_api_useragent('other_app_name')
+  }
+  catch {
+    $c->log->warn("Unable to exchange token : $_");
+    $c->render(template => 'error',
+               message  => "Authorization problem. Please try again after refreshing the page.",
+               status   => 403);
+    return;
+  } or return;
+
+  # Usual call to the API
+  my $res = $ua->get($url)->result;
+
+=head2 Authorization Server
+
+To check an access token from an Authorization Server, for example, with an application
+using L<Mojolicious::Plugin::OpenAPI>, you can define a security definition :
+
+  use OIDC::Client::UserUtil qw(build_user_from_claims);
+
+  $app->plugin(OpenAPI => {
+    url      => "data:///swagger.yaml",
+    security => {
+      oidc_token => sub {
+        my ($c, $definition, $roles_to_check, $cb) = @_;
+
+        my $claims = try {
+          # Assuming it's a JWT token
+          return $c->oidc->verify_token();
+        }
+        catch {
+          $c->app->log->warn("Token validation : $_");
+          $c->$cb("Invalid or incomplete token");
+          return;
+        } or return;
+
+        my $userinfo = $c->oidc->get_userinfo();
+        my $mapping  = $c->oidc->client->jwt_claim_key;
+        my $user     = build_user_from_mapping($userinfo, $mapping);
+
+        foreach my $role_to_check (@$roles_to_check) {
+          if ($user->has_role($role_to_check)) {
+            return $c->$cb();
+          }
+        }
+
+        return $c->$cb("Insufficient roles");
+      },
+    }
+  });
+
+=head1 SEE ALSO
+
+=over 2
+
+=item * L<Mojolicious::Plugin::OAuth2>
+
+=back
+
+=cut
 
 1;

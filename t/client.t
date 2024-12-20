@@ -309,7 +309,7 @@ sub test_decode_jwt_options_from_default_value {
 
     # Then
     my %expected = (verify_exp => 1,
-                    leeway     => 30);
+                    leeway     => 60);
     cmp_deeply($decode_jwt_options, \%expected,
                'from default value');
   };

@@ -32,5 +32,7 @@ author_requires 'Catalyst::Plugin::ConfigLoader';
 author_requires 'Catalyst::View::JSON';
 author_requires 'Catalyst::Action::RenderView';
 author_requires 'Config::General';
+author_requires 'Test::CPAN::Meta';
 author_requires 'Test::Perl::Critic';
+author_requires 'Test::Vars';
 author_requires 'Test::WWW::Mechanize::Catalyst::WithContext';

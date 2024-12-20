@@ -53,7 +53,10 @@ OIDC::Client - OpenID Connect Client
 
 =head1 DESCRIPTION
 
-Client library for OpenID Connect.
+Client module for OpenID Connect protocol.
+
+For use from within an application, you should use the framework plugin
+included in the L<OIDC-Client|https://metacpan.org/dist/OIDC-Client> distribution.
 
 =cut
 
@@ -70,7 +73,7 @@ Readonly my %DEFAULT_JWT_CLAIM_KEY => (
 
 Readonly my %DEFAULT_DECODE_JWT_OPTIONS => (
   verify_exp => 1,   # require valid 'exp' claim
-  leeway     => 30,  # to account for clock skew
+  leeway     => 60,  # to account for clock skew
 );
 
 Readonly my $DEFAULT_TOKEN_ENDPOINT_GRANT_TYPE  => 'authorization_code';
@@ -286,8 +289,8 @@ sub BUILD {
 
   my $authorize_url = $client->auth_url(%args);
 
-Returns a scalar or a L<Mojo::URL> object which contain the nitial authorization URL
-with a response type C<code>.
+Returns a scalar or a L<Mojo::URL> object containing the initial authorization URL.
+This is the URL to use to initiate an authorization code flow.
 
 The optional parameters are:
 
@@ -770,7 +773,7 @@ sub get_scope_for_audience {
     audience => $audience,
   );
 
-Exchange a token, obtained through OIDC authentication, for a token that
+Exchanges a token, obtained through OIDC authentication, for a token that
 is accepted by a different OIDC application.
 
 Returns a L<OIDC::Client::TokenResponse> object.
@@ -1050,7 +1053,12 @@ sub _get_kid_keys {
 }
 
 
-# simple pass-through that can be mocked in tests
+=head2 decode_jwt( %args )
+
+Simple pass-through of the Crypt::JWT::decode_jwt() function that can be mocked in tests
+
+=cut
+
 sub decode_jwt { Crypt::JWT::decode_jwt(@_) }
 
 sub _decode_token {
@@ -1158,6 +1166,47 @@ __PACKAGE__->meta->make_immutable;
 
 1;
 
+=head1 CONFIGURATION
+
+To use this module directly via a batch or script, here is the section to add
+to your configuration file:
+
+  oidc_client:
+    provider:                  provider_name
+    id:                        my-app-id
+    secret:                    xxxxxxxxx
+    audience:                  other_app_name
+    well_known_url:            https://yourprovider.com/oauth2/.well-known/openid-configuration
+    scope:                     roles
+    token_endpoint_grant_type: password
+    username:                  TECHXXXX
+    password:                  xxxxxxxx
+
+This is an example, see the detailed possibilities in L<OIDC::Client::Config>.
+
+=head1 SAMPLES
+
+Here are some samples by category. Although you will have to adapt them to your needs,
+they should be a good starting point.
+
+=head2 API call
+
+To make an API call to another application :
+
+  my $oidc_client = OIDC::Client->new(
+    log    => $self->log,
+    config => $self->config->{oidc_client},
+  );
+
+  # Retrieving a web client (Mojo::UserAgent object)
+  my $ua = $oidc_client->build_api_useragent();
+
+  # Usual call to the API
+  my $res = $ua->get($url)->result;
+
+Here, there is no token exchange because the audience has been configured
+to get the access token intended for the other application.
+
 =head1 AUTHOR
 
 Sébastien Mourlhou
@@ -1167,3 +1216,13 @@ Sébastien Mourlhou
 Copyright (C) Sébastien Mourlhou
 
 This program is free software, you can redistribute it and/or modify it under the terms of the Artistic License version 2.0.
+
+=head1 SEE ALSO
+
+=over 2
+
+=item * L<OIDC::Lite>
+
+=back
+
+=cut

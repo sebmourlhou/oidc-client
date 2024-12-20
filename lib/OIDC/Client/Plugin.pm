@@ -21,11 +21,11 @@ with 'OIDC::Client::Role::LoggerWrapper';
 
 =head1 NAME
 
-OIDC::Client::Plugin - Main class for the plugins
+OIDC::Client::Plugin - Main module for the plugins
 
 =head1 DESCRIPTION
 
-Main class instanciated for the current request by the application plugin
+Main module instanciated for the current request by the application plugin
 (L<Mojolicious::Plugin::OIDC> or L<Catalyst::Plugin::OIDC>).
 
 It contains all the methods available in the application.
@@ -232,7 +232,7 @@ to the state parameter sent with the authorize URL.
 
 From a code received from the provider, executes a request to get the token(s).
 
-Checks the ID token and stores the token(s) in the session by default or stash
+Checks the ID token if present and stores the token(s) in the session by default or stash
 if preferred.
 
 Returns the stored identity object (see L<get_stored_identity> method) for details
@@ -673,6 +673,8 @@ sub has_access_token_expired {
 
 Returns a valid (not expired) token object (hashref) for the default audience
 or for the audience corresponding to a given alias.
+
+Returns undef if no access token has been stored for the audience.
 
 The token can be retrieved from the store or after a refresh.
 
