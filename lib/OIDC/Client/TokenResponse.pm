@@ -5,8 +5,8 @@ use namespace::autoclean;
 
 has 'access_token' => (
   is       => 'ro',
-  isa      => 'Str',
-  required => 1,
+  isa      => 'Maybe[Str]',
+  required => 0,
 );
 
 has 'id_token' => (
@@ -47,17 +47,17 @@ OIDC::Client::TokenResponse - OIDC token response
 
 =head1 DESCRIPTION
 
-Class representing an OIDC token response from provider.
+Class representing an OIDC token response from provider
 
 =head1 ATTRIBUTES
 
 =head2 access_token
 
-The access token issued by the authorization serve
+The access token issued by the provider
 
 =head2 id_token
 
-ID Token value associated with the authenticated session
+The identity token issued by the provider
 
 =head2 token_type
 

@@ -211,7 +211,7 @@ sub test_get_token_with_invalid_state_parameter {
 }
 
 sub test_get_token_ok {
-  subtest "get_token() ok" => sub {
+  subtest "get_token() with all tokens" => sub {
 
     # Given
     my $obj = build_object(request_params => {code       => 'my_code',
@@ -226,12 +226,10 @@ sub test_get_token_ok {
 
     # Then
     my %expected_stored_identity = (
-      token      => 'my_id_token',
-      issuer     => 'my_issuer',
-      expiration => 123,
-      audience   => 'my_id',
-      subject    => 'my_subject',
-      roles      => [qw/role1 role2 role3/],
+      token   => 'my_id_token',
+      subject => 'my_subject',
+      login   => 'my_subject',
+      roles   => [qw/role1 role2 role3/],
     );
     cmp_deeply(
       $identity,
@@ -264,6 +262,119 @@ sub test_get_token_ok {
                                                  expected_audience => 'my_id',
                                                  expected_nonce    => 'my-nonce'] ],
                'expected call to client->verify_token');
+  };
+
+  subtest "get_token() with only ID token" => sub {
+
+    # Given
+    my $obj = build_object(request_params => {code       => 'my_code',
+                                              state      => 'abc'},
+                           flash          => {oidc_nonce => 'my-nonce',
+                                              oidc_state => 'abc'},
+                           token_response => {id_token   => 'my_id_token'});
+
+    # When
+    my $identity = $obj->get_token(
+      redirect_uri => 'my_redirect_uri',
+    );
+
+    # Then
+    my %expected_stored_identity = (
+      token   => 'my_id_token',
+      subject => 'my_subject',
+      login   => 'my_subject',
+      roles   => [qw/role1 role2 role3/],
+    );
+    cmp_deeply(
+      $identity,
+      \%expected_stored_identity,
+      'expected returned identity'
+    );
+    cmp_deeply(
+      get_stored_identity($obj),
+      \%expected_stored_identity,
+      'expected stored identity'
+    );
+
+    cmp_deeply(
+      get_stored_access_token($obj),
+      undef,
+      'no stored access token'
+    );
+  };
+
+  subtest "get_token() with only access token" => sub {
+
+    # Given
+    my $obj = build_object(request_params => {code       => 'my_code',
+                                              state      => 'abc'},
+                           flash          => {oidc_nonce => 'my-nonce',
+                                              oidc_state => 'abc'},
+                           token_response => {access_token => 'my_access_token'});
+
+    # When
+    my $identity = $obj->get_token(
+      redirect_uri => 'my_redirect_uri',
+    );
+
+    # Then
+    cmp_deeply(
+      $identity,
+      undef,
+      'no returned identity'
+    );
+    cmp_deeply(
+      get_stored_identity($obj),
+      undef,
+      'no stored identity'
+    );
+
+    my %expected_stored_access_token = (
+      token => 'my_access_token',
+    );
+    cmp_deeply(
+      get_stored_access_token($obj),
+      \%expected_stored_access_token,
+      'expected stored access token'
+    );
+  };
+
+  subtest "get_token() with access token and refresh token" => sub {
+
+    # Given
+    my $obj = build_object(request_params => {code       => 'my_code',
+                                              state      => 'abc'},
+                           flash          => {oidc_nonce => 'my-nonce',
+                                              oidc_state => 'abc'},
+                           token_response => {access_token  => 'my_access_token',
+                                              refresh_token => 'my_refresh_token'});
+
+    # When
+    my $identity = $obj->get_token(
+      redirect_uri => 'my_redirect_uri',
+    );
+
+    # Then
+    cmp_deeply(
+      $identity,
+      undef,
+      'no returned identity'
+    );
+    cmp_deeply(
+      get_stored_identity($obj),
+      undef,
+      'no stored identity'
+    );
+
+    my %expected_stored_access_token = (
+      token         => 'my_access_token',
+      refresh_token => 'my_refresh_token',
+    );
+    cmp_deeply(
+      get_stored_access_token($obj),
+      \%expected_stored_access_token,
+      'expected stored access token'
+    );
   };
 }
 
@@ -1157,12 +1268,12 @@ sub test_get_stored_identity {
 sub build_object {
   my (%params) = @_;
 
-  my %default_jwt_claim_key = (
-    issuer     => 'iss',
-    expiration => 'exp',
-    audience   => 'aud',
-    subject    => 'sub',
-    roles      => 'roles',
+  my %default_claim_mapping = (
+    login => 'sub',
+    roles => 'roles',
+  );
+  my %default_userinfo = (
+    sub   => 'DOEJ',
   );
   my %claims = (
     iss => 'my_issuer',
@@ -1171,7 +1282,7 @@ sub build_object {
     sub => 'my_subject',
     roles => [qw/role1 role2 role3/],
   );
-  my %token = (
+  my %default_token_response = (
     access_token  => 'my_access_token',
     id_token      => 'my_id_token',
     refresh_token => 'my_refresh_token',
@@ -1197,7 +1308,7 @@ sub build_object {
   $mock_client->mock(verify_token   => sub { \%claims });
   $mock_client->mock(jwt_claim_key  => sub { $config{jwt_claim_key} || \%default_jwt_claim_key });
   $mock_client->mock(get_token      => sub { OIDC::Client::TokenResponse->new(%token) });
-  $mock_client->mock(exchange_token => sub { OIDC::Client::TokenResponse->new(%exchanged_token) });
+  $mock_client->mock(get_token           => sub { OIDC::Client::TokenResponse->new($params{token_response} || \%default_token_response) });
   $mock_client->mock(build_api_useragent => sub { Mojo::UserAgent->new(); });
   $mock_client->mock(has_expired    => sub { 0 });
   $mock_client->mock(get_userinfo   => sub { {firstName => "John", lastName => 'Doe'} });

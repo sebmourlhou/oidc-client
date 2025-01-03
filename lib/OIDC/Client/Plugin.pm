@@ -292,14 +292,17 @@ sub get_token {
     );
   }
 
-  $self->_store_access_token(
-    audience      => $self->client->audience,
-    access_token  => $token_response->access_token,
-    refresh_token => $token_response->refresh_token,
-    token_type    => $token_response->token_type,
-    expires_at    => $self->_get_expiration_time(token_response => $token_response),
-  );
-  $self->log_msg(debug => "OIDC: access token has been stored");
+  if (my $access_token = $token_response->access_token) {
+    my $expires_at = $self->_get_expiration_time(token_response => $token_response);
+    $self->_store_access_token(
+      audience      => $self->client->audience,
+      access_token  => $access_token,
+      refresh_token => $token_response->refresh_token,
+      token_type    => $token_response->token_type,
+      expires_at    => $expires_at,
+    );
+    $self->log_msg(debug => "OIDC: access token has been stored");
+  }
 
   return $self->get_stored_identity();
 }
@@ -355,13 +358,14 @@ sub refresh_token {
     grant_type    => 'refresh_token',
     refresh_token => $refresh_token,
   );
+  my $expires_at = $self->_get_expiration_time(token_response => $token_response);
 
   $self->_store_access_token(
     audience      => $audience,
     access_token  => $token_response->access_token,
     refresh_token => $token_response->refresh_token,
     token_type    => $token_response->token_type,
-    expires_at    => $self->_get_expiration_time(token_response => $token_response),
+    expires_at    => $expires_at,
   );
 
   $self->log_msg(debug => "OIDC: token has been refreshed and stored");
@@ -375,8 +379,7 @@ sub refresh_token {
   my $stored_exchanged_token = $c->oidc->exchange_token($audience_alias);
 
 Exchange the access token received during the user's login, for an access token
-that is accepted by a different OIDC application and stores it in the session by default
-or stash if preferred.
+that is accepted by a different OIDC application and stores it.
 
 Returns the stored access token object (see L<get_valid_access_token> method) for details
 of the returned object.
@@ -409,13 +412,14 @@ sub exchange_token {
     token    => $access_token->{token},
     audience => $audience,
   );
+  my $expires_at = $self->_get_expiration_time(token_response => $exchanged_token_response);
 
   $self->_store_access_token(
     audience      => $audience,
     access_token  => $exchanged_token_response->access_token,
     refresh_token => $exchanged_token_response->refresh_token,
     token_type    => $exchanged_token_response->token_type,
-    expires_at    => $self->_get_expiration_time(token_response => $exchanged_token_response),
+    expires_at    => $expires_at,
   );
 
   $self->log_msg(debug => "OIDC: token has been exchanged and stored");
@@ -448,10 +452,12 @@ sub verify_token {
 
   my $claims = $self->client->verify_token(token => $token);
 
+  my $expires_at = $self->_get_expiration_time(claims => $claims);
+
   $self->_store_access_token(
     audience     => $self->client->audience,
     access_token => $token,
-    expires_at   => $self->_get_expiration_time(claims => $claims),
+    expires_at   => $expires_at,
   );
 
   return $claims;
