@@ -98,9 +98,15 @@ L<OIDC::Client::Plugin> documentation to find out what methods are available.
 
 =cut
 
-sub oidc ($c, %options) {
+sub oidc ($c, $provider = undef) {
 
-  return OIDC::Client::Plugin->new(
+  my $client = $c->_oidc_get_client_for_provider($provider);
+  my $plugin = $c->stash->{oidc}{plugin};
+
+  return $plugin
+    if $plugin && $plugin->client->provider eq $client->provider;
+
+  $plugin = $c->stash->{oidc}{plugin} = OIDC::Client::Plugin->new(
     log             => $c->log,
     store_mode      => $c->_oidc_config->{store_mode} || 'session',
     request_params  => $c->req->params,
@@ -110,10 +116,12 @@ sub oidc ($c, %options) {
     get_flash       => sub { return $c->flash->{$_[0]}; },
     set_flash       => sub { $c->flash->{$_[0]} = $_[1]; return; },
     redirect        => sub { $c->response->redirect($_[0]); return; },
-    client          => $c->_oidc_get_client_for_provider($options{provider}),
+    client          => $client,
     base_url        => $c->req->base->as_string,
     current_url     => $c->req->uri->as_string,
   );
+
+  return $plugin;
 }
 
 # code executed on callback after authentication attempt
@@ -123,7 +131,7 @@ sub _oidc_login_callback ($self, $c) {
   my $provider = @providers == 1 ? $providers[0]
                                  : $c->flash->{oidc_provider};
   try {
-    $c->oidc(provider => $provider)->get_token();
+    $c->oidc($provider)->get_token();
     $c->response->redirect($c->flash->{oidc_target_url} || $c->uri_for('/'));
   }
   catch {
@@ -158,7 +166,7 @@ sub _oidc_get_client_for_provider ($c, $provider) {
       $provider = $providers[0];
     }
     elsif (@providers > 1) {
-      croak(q{OIDC: more than one provider are configured, the provider is mandatory : $c->oidc(provider => $provider)});
+      croak(q{OIDC: more than one provider are configured, the provider is mandatory : $c->oidc('my_provider')});
     }
     else {
       croak("OIDC: no provider is configured");
