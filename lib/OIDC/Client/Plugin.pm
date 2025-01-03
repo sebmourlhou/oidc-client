@@ -443,8 +443,8 @@ entry (hashref) to be returned by this method.
 sub verify_token {
   my $self = shift;
 
-  if ($self->is_base_url_local and my $mock = $self->client->config->{mocked_claims}) {
-    return $mock;
+  if ($self->is_base_url_local and my $mocked_claims = $self->client->config->{mocked_claims}) {
+    return $mocked_claims;
   }
 
   my $token = $self->get_token_from_authorization_header()
@@ -453,11 +453,13 @@ sub verify_token {
   my $claims = $self->client->verify_token(token => $token);
 
   my $expires_at = $self->_get_expiration_time(claims => $claims);
+  my $scopes     = $self->_get_scopes_from_claims($claims);
 
   $self->_store_access_token(
     audience     => $self->client->audience,
     access_token => $token,
     expires_at   => $expires_at,
+    scopes       => $scopes,
   );
 
   return $claims;
@@ -487,11 +489,38 @@ sub get_token_from_authorization_header {
 }
 
 
+=head2 has_scope( $expected_scope )
+
+  my $has_scope = $c->oidc->has_scope($expected_scope);
+
+Returns whether a scope is present in the scopes of the stored access token.
+
+This method should only be invoked after a call to the L</"verify_token( %args )">
+method.
+
+=cut
+
+sub has_scope {
+  my $self = shift;
+  my ($expected_scope) = pos_validated_list(\@_, { isa => 'Str', optional => 0 });
+
+  my $stored_token = $self->get_valid_access_token()
+    or croak("OIDC: cannot retrieve the access token");
+
+  my $scopes = $stored_token->{scopes}
+    or return 0;
+
+  return any { $_ eq $expected_scope } @$scopes;
+}
+
+
 =head2 get_userinfo()
 
   my $userinfo = $c->oidc->get_userinfo();
 
 Returns the user informations from the userinfo endpoint.
+
+This method should only be invoked when an access token has been stored.
 
 To mock the userinfo returned by this method in local environment, you can configure
 the C<mocked_userinfo> entry (hashref).
@@ -501,8 +530,8 @@ the C<mocked_userinfo> entry (hashref).
 sub get_userinfo {
   my $self = shift;
 
-  if ($self->is_base_url_local and my $mock = $self->client->config->{mocked_userinfo}) {
-    return $mock;
+  if ($self->is_base_url_local and my $mocked_userinfo = $self->client->config->{mocked_userinfo}) {
+    return $mocked_userinfo;
   }
 
   my $stored_token = $self->get_valid_access_token()
@@ -714,10 +743,15 @@ Token to "refresh" the access token when it has expired (String)
 
 Type of the token (String)
 
+=item scopes
+
+Token scopes (arrayref of strings). Present only after a call
+to the L</"verify_token( %args )"> method.
+
 =back
 
-In local environment, if the C<mocked_identity> entry (hashref) is configured,
-a mocked token is returned.
+In local environment, if the C<mocked_claims> entry (hashref) is configured,
+mocked token and scopes are returned.
 
 =cut
 
@@ -729,8 +763,10 @@ sub get_valid_access_token {
                                  : $self->client->audience
     or croak("OIDC: no audience for alias '$audience_alias'");
 
-  if ($self->is_base_url_local && $self->client->config->{mocked_identity}) {
-    return { token => "mocked token for audience '$audience'" };
+  if ($self->is_base_url_local and my $mocked_claims = $self->client->config->{mocked_claims}) {
+    my $scopes = $self->_get_scopes_from_claims($mocked_claims);
+    return { token  => "mocked token for audience '$audience'",
+             scopes => $scopes };
   }
 
   my $stored_token = $self->_get_stored_access_token($audience);
@@ -781,8 +817,8 @@ Subject identifier (String)
 
 =back
 
-If other JWT claim keys are configured in the C<jwt_claim_key> section, they are present
-in the stored identity and therefore returned by this method.
+If a claim mapping is configured in the C<claim_mapping> section, the claim names/values
+are present in the stored identity and therefore returned by this method.
 
 To bypass the OIDC flow in local environment, you can configure the C<mocked_identity>
 entry (hashref) to be returned by this method.
@@ -792,8 +828,8 @@ entry (hashref) to be returned by this method.
 sub get_stored_identity {
   my $self = shift;
 
-  if ($self->is_base_url_local and my $mock = $self->client->config->{mocked_identity}) {
-    return $mock;
+  if ($self->is_base_url_local and my $mocked_identity = $self->client->config->{mocked_identity}) {
+    return $mocked_identity;
   }
 
   my $provider = $self->client->provider;
@@ -849,16 +885,19 @@ sub _store_access_token {
     expires_at    => { isa => 'Maybe[Int]', optional => 1 },
     refresh_token => { isa => 'Maybe[Str]', optional => 1 },
     token_type    => { isa => 'Maybe[Str]', optional => 1 },
+    scopes        => { isa => 'ArrayRef[Str]', optional => 1 },
   );
 
   my $provider = $self->client->provider;
 
-  $self->_store->{oidc}{provider}{$provider}{access_token}{audience}{$params{audience}} = {
+  my %to_store = (
     token => $params{access_token},
-    $params{expires_at}    ? (expires_at    => $params{expires_at})    : (),
-    $params{refresh_token} ? (refresh_token => $params{refresh_token}) : (),
-    $params{token_type}    ? (token_type    => $params{token_type})    : (),
-  };
+  );
+  for (qw/ expires_at refresh_token token_type scopes /) {
+    $to_store{$_} = $params{$_} if defined $params{$_};
+  }
+
+  $self->_store->{oidc}{provider}{$provider}{access_token}{audience}{$params{audience}} = \%to_store;
 }
 
 
@@ -882,6 +921,16 @@ sub _get_expiration_time {
   }
 
   return;
+}
+
+
+sub _get_scopes_from_claims {
+  my $self = shift;
+  my ($claims) = pos_validated_list(\@_, { isa => 'HashRef', optional => 0 });
+
+  return exists $claims->{scp}   ? ($claims->{scp} // [])
+       : exists $claims->{scope} ? [split(/\s+/, ($claims->{scope} // ''))]
+                                 : [];
 }
 
 

@@ -556,8 +556,8 @@ sub test_verify_token_with_exceptions {
   };
 }
 
-sub test_verify_token {
-  subtest "verify_token() ok" => sub {
+sub test_verify_token_ok {
+  subtest "verify_token() token is stored in session" => sub {
 
     # Given
     my $obj = build_object(
@@ -569,15 +569,16 @@ sub test_verify_token {
 
     # Then
     my %expected_claims = (
-      iss => 'my_issuer',
-      exp => 123,
-      aud => 'my_id',
-      sub => 'my_subject',
+      iss   => 'my_issuer',
+      exp   => 123,
+      aud   => 'my_id',
+      sub   => 'my_subject',
       roles => [qw/role1 role2 role3/],
     );
     my %expected_stored_token = (
       token      => 'abcd123',
       expires_at => 123,
+      scopes     => [],
     );
     cmp_deeply($claims,
                \%expected_claims,
@@ -608,15 +609,16 @@ sub test_verify_token {
 
     # Then
     my %expected_claims = (
-      iss => 'my_issuer',
-      exp => 123,
-      aud => 'my_id',
-      sub => 'my_subject',
+      iss   => 'my_issuer',
+      exp   => 123,
+      aud   => 'my_id',
+      sub   => 'my_subject',
       roles => [qw/role1 role2 role3/],
     );
     my %expected_stored_token = (
       token      => 'ABC2',
       expires_at => 123,
+      scopes     => [],
     );
     cmp_deeply($claims,
                \%expected_claims,
@@ -633,9 +635,86 @@ sub test_verify_token {
     );
   };
 
+  subtest "verify_token() with 'scp' claim" => sub {
+
+    # Given
+    my $obj = build_object(
+      request_headers => { Authorization => 'bearer abcd123' },
+      claims          => { iss => 'my_issuer',
+                           exp => 123,
+                           aud => 'my_id',
+                           sub => 'my_subject',
+                           scp => [qw/scope1 scope2 scope3/] },
+    );
+
+    # When
+    my $claims = $obj->verify_token();
+
+    # Then
+    my %expected_claims = (
+      iss => 'my_issuer',
+      exp => 123,
+      aud => 'my_id',
+      sub => 'my_subject',
+      scp => [qw/scope1 scope2 scope3/],
+    );
+    my %expected_stored_token = (
+      token      => 'abcd123',
+      expires_at => 123,
+      scopes     => [qw/scope1 scope2 scope3/],
+    );
+    cmp_deeply($claims,
+               \%expected_claims,
+               'expected result');
+    cmp_deeply(
+      get_stored_access_token($obj),
+      \%expected_stored_token,
+      'expected stored access token'
+    );
+  };
+
+  subtest "verify_token() with 'scope' claim" => sub {
+
+    # Given
+    my $obj = build_object(
+      request_headers => { Authorization => 'bearer abcd123' },
+      claims          => { iss   => 'my_issuer',
+                           exp   => 456,
+                           aud   => 'my_id',
+                           sub   => 'my_subject',
+                           scope => 'scope4 scope5 scope6' },
+    );
+
+    # When
+    my $claims = $obj->verify_token();
+
+    # Then
+    my %expected_claims = (
+      iss   => 'my_issuer',
+      exp   => 456,
+      aud   => 'my_id',
+      sub   => 'my_subject',
+      scope => 'scope4 scope5 scope6',
+    );
+    my %expected_stored_token = (
+      token      => 'abcd123',
+      expires_at => 456,
+      scopes     => [qw/scope4 scope5 scope6/],
+    );
+    cmp_deeply($claims,
+               \%expected_claims,
+               'expected result');
+    cmp_deeply(
+      get_stored_access_token($obj),
+      \%expected_stored_token,
+      'expected stored access token'
+    );
+  };
+
   subtest "verify_token() with mocked claims" => sub {
 
-    my %mocked_claims = (sub => 'my_mocked_subject');
+    my %mocked_claims = (sub => 'my_mocked_subject',
+                         scp => [qw/scope1 scope2/]);
 
     # Given
     my $obj = build_object(
@@ -700,6 +779,41 @@ sub test_get_token_from_authorization_header {
     # Then
     is($token, undef,
        'no token : returns undef')
+  };
+}
+
+sub test_has_scope {
+  subtest "has_scope() with scopes" => sub {
+
+    # Given
+    my $obj = build_object();
+    store_access_token(
+      $obj,
+      { token  => 'my_access_token',
+        scopes => [qw/scope11 scope12/] }
+    );
+
+    # When - Then
+    ok($obj->has_scope('scope11'),
+       'has scope');
+    ok($obj->has_scope('scope12'),
+       'has another scope');
+    ok(! $obj->has_scope('scope1'),
+       'has not scope');
+  };
+
+  subtest "has_scope() without scope" => sub {
+
+    # Given
+    my $obj = build_object();
+    store_access_token(
+      $obj,
+      { token => 'my_access_token' }
+    );
+
+    # When - Then
+    ok(! $obj->has_scope('scope11'),
+       'has not scope');
   };
 }
 
@@ -1157,11 +1271,12 @@ sub test_get_valid_access_token_for_audience {
 
   subtest "get_valid_access_token() with mocked token" => sub {
 
-    my %identity = (subject => 'my_mocked_subject');
+    my %mocked_claims = (login => 'my_mocked_login',
+                         scp   => [qw/scope1/]);
 
     # Given
     my $obj = build_object(
-      config     => { mocked_identity => \%identity,
+      config     => { mocked_claims  => \%mocked_claims,
                       audience_alias => { my_audience_alias => {audience => 'my_audience'} } },
       attributes => { base_url => 'http://localhost:3000' },
     );
@@ -1170,18 +1285,19 @@ sub test_get_valid_access_token_for_audience {
     my $exchanged_token = $obj->get_valid_access_token('my_audience_alias');
 
     # Then
-    my %expected_exchanged_token = (token => q{mocked token for audience 'my_audience'});
+    my %expected_exchanged_token = (token  => q{mocked token for audience 'my_audience'},
+                                    scopes => [qw/scope1/]);
     cmp_deeply($exchanged_token, \%expected_exchanged_token,
                'expected result');
   };
 
   subtest "get_valid_access_token() with mocked token but not in local environment" => sub {
 
-    my %identity = (subject => 'my_mocked_subject');
+    my %mocked_claims = (login => 'my_mocked_login');
 
     # Given
     my $obj = build_object(
-      config     => { mocked_identity => \%identity,
+      config     => { mocked_claims  => \%mocked_claims,
                       audience_alias => { my_audience_alias => {audience => 'my_audience'} } },
       attributes => { base_url => 'http://my-app' },
     );
@@ -1275,11 +1391,11 @@ sub build_object {
   my %default_userinfo = (
     sub   => 'DOEJ',
   );
-  my %claims = (
-    iss => 'my_issuer',
-    exp => 123,
-    aud => 'my_id',
-    sub => 'my_subject',
+  my %default_claims = (
+    iss   => 'my_issuer',
+    exp   => 123,
+    aud   => 'my_id',
+    sub   => 'my_subject',
     roles => [qw/role1 role2 role3/],
   );
   my %default_token_response = (
@@ -1305,7 +1421,7 @@ sub build_object {
   $mock_client->mock(id             => sub { 'my_id' });
   $mock_client->mock(audience       => sub { $config{audience} || 'my_id' });
   $mock_client->mock(provider       => sub { 'my_provider' });
-  $mock_client->mock(verify_token   => sub { \%claims });
+  $mock_client->mock(verify_token        => sub { $params{claims} || \%default_claims });
   $mock_client->mock(jwt_claim_key  => sub { $config{jwt_claim_key} || \%default_jwt_claim_key });
   $mock_client->mock(get_token      => sub { OIDC::Client::TokenResponse->new(%token) });
   $mock_client->mock(get_token           => sub { OIDC::Client::TokenResponse->new($params{token_response} || \%default_token_response) });
