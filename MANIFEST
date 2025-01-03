@@ -22,7 +22,6 @@ lib/OIDC/Client/Role/LoggerWrapper.pm
 lib/OIDC/Client/TokenResponse.pm
 lib/OIDC/Client/TokenResponseParser.pm
 lib/OIDC/Client/User.pm
-lib/OIDC/Client/UserUtil.pm
 t/00-compile.t
 t/catalyst-plugin-auth-code-flow-IT.t
 t/client.t
@@ -37,7 +36,6 @@ t/plugin.t
 t/response-parser.t
 t/token-response-parser.t
 t/user.t
-t/userutil.t
 xt/author/critic.t
 xt/author/distmeta.t
 xt/author/no-breakpoints.t

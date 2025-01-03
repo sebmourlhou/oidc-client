@@ -9,11 +9,11 @@ use namespace::autoclean;
 use Carp qw(croak);
 use Data::UUID;
 use List::Util qw(any);
-use Try::Tiny;
+use Module::Load qw(load);
 use Mojo::URL;
+use Try::Tiny;
 use OIDC::Client::Error::Authentication;
 use OIDC::Client::Error::Provider;
-use OIDC::Client::User;
 
 with 'OIDC::Client::Role::LoggerWrapper';
 
@@ -540,6 +540,85 @@ sub get_userinfo {
   return $self->client->get_userinfo(
     access_token => $stored_token->{token},
     token_type   => $stored_token->{token_type},
+  );
+}
+
+
+=head2 build_user_from_userinfo( $user_class )
+
+  my $user = $c->oidc->build_user_from_userinfo();
+
+Gets the user informations calling the provider (see L</"get_userinfo()">)
+and returns a user object (L<OIDC::Client::User> by default) from this user
+informations.
+
+The optional list parameters are:
+
+=over 2
+
+=item user_class
+
+Class to be used to instantiate the user.
+Default to L<OIDC::Client::User>.
+
+=back
+
+=cut
+
+sub build_user_from_userinfo {
+  my $self = shift;
+  my ($user_class) = pos_validated_list(\@_, { isa => 'Str', default => 'OIDC::Client::User' });
+  load($user_class);
+
+  my $userinfo    = $self->get_userinfo();
+  my $mapping     = $self->client->claim_mapping;
+  my $role_prefix = $self->client->role_prefix;
+
+  return $user_class->new(
+    (
+      map { $_ => $userinfo->{ $mapping->{$_} } }
+      grep { exists $userinfo->{ $mapping->{$_} } }
+      keys %$mapping
+    ),
+    defined $role_prefix ? (role_prefix => $role_prefix) : (),
+  );
+}
+
+
+=head2 build_user_from_identity( $user_class )
+
+  my $user = $c->oidc->build_user_from_identity();
+
+Returns a user object (L<OIDC::Client::User> by default) from the stored identity.
+This method should only be invoked when an identity has been stored, i.e.
+when an authorisation flow has completed and an ID token has been returned
+by the provider.
+
+The optional list parameters are:
+
+=over 2
+
+=item user_class
+
+Class to be used to instantiate the user.
+Default to L<OIDC::Client::User>.
+
+=back
+
+=cut
+
+sub build_user_from_identity {
+  my $self = shift;
+  my ($user_class) = pos_validated_list(\@_, { isa => 'Str', default => 'OIDC::Client::User' });
+
+  my $identity = $self->get_stored_identity()
+    or croak("OIDC: no identity has been stored");
+
+  my $role_prefix = $self->client->role_prefix;
+
+  return $user_class->new(
+    %$identity,
+    defined $role_prefix ? (role_prefix => $role_prefix) : (),
   );
 }
 

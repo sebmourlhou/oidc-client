@@ -882,6 +882,80 @@ sub test_get_userinfo {
   };
 }
 
+sub test_build_user_from_userinfo {
+  subtest "build_user_from_userinfo()" => sub {
+
+    # Prepare
+    my %claim_mapping = (
+      login     => 'sub',
+      lastname  => 'lastName',
+      firstname => 'firstName',
+      email     => 'email',
+      roles     => 'roles',
+    );
+    my %userinfo = (
+      sub       => 'DOEJ',
+      firstName => 'John',
+      lastName  => 'Doe',
+      roles     => [qw/app.role1 app.role2 app.role3/],
+    );
+
+    # Given
+    my $obj = build_object(
+      config   => { claim_mapping => \%claim_mapping,
+                    role_prefix   => 'app.' },
+      userinfo => \%userinfo,
+    );
+    store_access_token(
+      $obj,
+      { token         => 'my_access_token',
+        refresh_token => 'my_refresh_token' }
+    );
+
+    # When
+    my $user = $obj->build_user_from_userinfo();
+
+    # Then
+    my $expected_user = OIDC::Client::User->new(
+      login       => 'DOEJ',
+      lastname    => 'Doe',
+      firstname   => 'John',
+      roles       => [qw/app.role1 app.role2 app.role3/],
+      role_prefix => 'app.',
+    );
+    cmp_deeply($user, $expected_user,
+               'expected user');
+  };
+}
+
+sub test_build_user_from_identity {
+  subtest "build_user_from_identity()" => sub {
+
+    # Given
+    my $obj = build_object();
+    store_identity(
+      $obj,
+      { subject   => 'DOEJ',
+        login     => 'DOEJ',
+        lastname  => 'Doe',
+        firstname => 'John' }
+    );
+
+    # When
+    my $user = $obj->build_user_from_identity();
+
+    # Then
+    my $expected_user = OIDC::Client::User->new(
+      login       => 'DOEJ',
+      lastname    => 'Doe',
+      firstname   => 'John',
+      role_prefix => '',
+    );
+    cmp_deeply($user, $expected_user,
+               'expected user');
+  };
+}
+
 sub test_build_api_useragent {
   subtest "build_api_useragent() with valid access token for audience" => sub {
 
@@ -1416,20 +1490,21 @@ sub build_object {
 
   my $mock_client = Test::MockObject->new();
   $mock_client->set_isa('OIDC::Client');
-  $mock_client->mock(config         => sub { \%config });
-  $mock_client->mock(auth_url       => sub { 'my_auth_url' });
-  $mock_client->mock(logout_url     => sub { 'my_logout_url' });
-  $mock_client->mock(id             => sub { 'my_id' });
-  $mock_client->mock(audience       => sub { $config{audience} || 'my_id' });
-  $mock_client->mock(provider       => sub { 'my_provider' });
+  $mock_client->mock(config              => sub { \%config });
+  $mock_client->mock(auth_url            => sub { 'my_auth_url' });
+  $mock_client->mock(logout_url          => sub { 'my_logout_url' });
+  $mock_client->mock(id                  => sub { 'my_id' });
+  $mock_client->mock(audience            => sub { $config{audience} || 'my_id' });
+  $mock_client->mock(provider            => sub { 'my_provider' });
   $mock_client->mock(verify_token        => sub { $params{claims} || \%default_claims });
   $mock_client->mock(claim_mapping       => sub { $config{claim_mapping} || \%default_claim_mapping });
-  $mock_client->mock(get_token      => sub { OIDC::Client::TokenResponse->new(%token) });
+  $mock_client->mock(role_prefix         => sub { $config{role_prefix} || ''});
   $mock_client->mock(get_token           => sub { OIDC::Client::TokenResponse->new($params{token_response} || \%default_token_response) });
+  $mock_client->mock(exchange_token      => sub { OIDC::Client::TokenResponse->new(%exchanged_token) });
   $mock_client->mock(build_api_useragent => sub { Mojo::UserAgent->new(); });
-  $mock_client->mock(has_expired    => sub { 0 });
-  $mock_client->mock(get_userinfo   => sub { {firstName => "John", lastName => 'Doe'} });
-  $mock_client->mock(default_token_type => sub { 'Bearer' });
+  $mock_client->mock(has_expired         => sub { 0 });
+  $mock_client->mock(get_userinfo        => sub { $params{userinfo} || \%default_userinfo });
+  $mock_client->mock(default_token_type  => sub { 'Bearer' });
   $mock_client->mock(get_claim_value => sub {
     my ($self, %params) = @_;
     return $params{claims}->{$self->claim_mapping->{$params{name}}};
