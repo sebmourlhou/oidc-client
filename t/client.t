@@ -79,22 +79,6 @@ sub test_build_with_exceptions {
           provider => 'my_provider',
           id       => 'my_client_id',
           secret   => 'my_client_secret',
-          jwt_claim_key => {
-            issuer     => 'iss',
-            expiration => 'exp',
-          },
-        },
-      );
-    } qr/claim names are not configured: audience, subject/,
-      'claim names are missing';
-
-    throws_ok {
-      $class->new(
-        log => $log,
-        config => {
-          provider => 'my_provider',
-          id       => 'my_client_id',
-          secret   => 'my_client_secret',
           audience => 'my_audience',
           audience_alias => {
             alias1 => {
@@ -200,18 +184,14 @@ sub test_user_agent {
   };
 }
 
-sub test_jwt_claim_key_from_config {
-  subtest "jwt_claim_key from config" => sub {
+sub test_claim_mapping_from_config {
+  subtest "claim_mapping from config" => sub {
 
     # Given
     my %claim_key = (
-      issuer     => 'iss',
-      expiration => 'exp',
-      audience   => 'aud',
-      subject    => 'sub',
-      login      => 'sub',
-      lastname   => 'lastName',
-      firstname  => 'firstName',
+      login     => 'sub',
+      lastname  => 'lastName',
+      firstname => 'firstName',
     );
     my $client = $class->new(
       log      => $log,
@@ -220,21 +200,21 @@ sub test_jwt_claim_key_from_config {
         provider      => 'my_provider',
         id            => 'my_client_id',
         secret        => 'my_client_secret',
-        jwt_claim_key => \%claim_key,
+        claim_mapping => \%claim_key,
       },
     );
 
     # When
-    my $jwt_claim_key = $client->jwt_claim_key;
+    my $claim_mapping = $client->claim_mapping;
 
     # Then
-    cmp_deeply($jwt_claim_key, \%claim_key,
+    cmp_deeply($claim_mapping, \%claim_key,
                'from config');
   };
 }
 
-sub test_jwt_claim_key_from_default_value {
-  subtest "jwt_claim_key from default value" => sub {
+sub test_claim_mapping_from_default_value {
+  subtest "claim_mapping from default value" => sub {
 
     # Given
     my $client = $class->new(
@@ -248,16 +228,11 @@ sub test_jwt_claim_key_from_default_value {
     );
 
     # When
-    my $jwt_claim_key = $client->jwt_claim_key;
+    my $claim_mapping = $client->claim_mapping;
 
     # Then
-    my %expected = (
-      issuer     => 'iss',
-      expiration => 'exp',
-      audience   => 'aud',
-      subject    => 'sub',
-    );
-    cmp_deeply($jwt_claim_key, \%expected,
+    my %expected = ();
+    cmp_deeply($claim_mapping, \%expected,
                'from default value');
   };
 }
@@ -267,7 +242,7 @@ sub test_decode_jwt_options_from_config {
 
     # Given
     my %options = (
-      verify_exp => 0,
+      verify_exp => 1,
       leeway     => 20,
     );
     my $client = $class->new(
@@ -308,8 +283,7 @@ sub test_decode_jwt_options_from_default_value {
     my $decode_jwt_options = $client->decode_jwt_options;
 
     # Then
-    my %expected = (verify_exp => 1,
-                    leeway     => 60);
+    my %expected = (leeway => 60);
     cmp_deeply($decode_jwt_options, \%expected,
                'from default value');
   };
@@ -466,11 +440,8 @@ sub test_kid_keys {
         id       => 'my_client_id',
         secret   => 'my_client_secret',
         jwks_url => 'my_jwks_url',
-        jwt_claim_key => {
-          issuer     => 'iss',
-          expiration => 'exp',
-          audience   => 'aud',
-          subject    => 'sub',
+        claim_mapping => {
+          login => 'sub',
         }
       },
     );
@@ -1063,7 +1034,7 @@ sub test_verify_token {
       $client->verify_token(
         token => 'my_token',
       );
-    } qr/OIDC: the claim 'aud' is not present/,
+    } qr/OIDC: the audience is not defined/,
       'missing claim';
   };
 
@@ -1900,17 +1871,11 @@ sub test_get_claim_value {
 
     # Given
     my %claims = (
-      'iss' => 'my_issuer',
-      'exp' => 12345,
-      'aud' => 'my_audience',
       'sub' => 'my_subject',
     );
     my %claim_key = (
-      issuer     => 'iss',
-      expiration => 'exp',
-      audience   => 'aud',
-      subject    => 'sub',
-      last_name  => 'lastName',
+      login     => 'sub',
+      last_name => 'lastName',
     );
     my $client = $class->new(
       log      => $log,
@@ -1919,14 +1884,14 @@ sub test_get_claim_value {
         provider      => 'my_provider',
         id            => 'my_client_id',
         secret        => 'my_client_secret',
-        jwt_claim_key => \%claim_key,
+        claim_mapping => \%claim_key,
       },
     );
 
     {
       # When
       my $claim_value = $client->get_claim_value(
-        name   => 'subject',
+        name   => 'login',
         claims => \%claims,
       );
 
@@ -1953,7 +1918,7 @@ sub test_get_claim_value {
           name   => 'last_name',
           claims => \%claims,
         );
-      } qr/OIDC: the claim 'lastName' is not present/,
+      } qr/OIDC: the 'lastName' claim is not present/,
         'not present in claims and required';
     }
     {

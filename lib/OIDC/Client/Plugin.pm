@@ -799,18 +799,6 @@ Returns the stored identity, a hashref with at least these keys :
 
 Id token (String)
 
-=item issuer
-
-Issuer identifier for the issuer of the response containing the ID token (String)
-
-=item expiration
-
-The expiration time of the token (Integer timestamp)
-
-=item audience
-
-Audience that this ID Token is intended for. (String)
-
 =item subject
 
 Subject identifier (String)
@@ -846,21 +834,25 @@ sub _store_identity {
     claims   => { isa => 'HashRef', optional => 0 },
   );
 
-  my $provider = $self->client->provider;
+  my $subject = $params{claims}->{sub};
+
+  defined $subject
+    or croak("OIDC: the 'sub' claim is not defined");
 
   my %identity = (
-    token => $params{id_token},
+    token   => $params{id_token},
+    subject => $subject,
   );
 
-  my @required_identity_claims = qw/issuer expiration audience subject/;
-
-  foreach my $claim_name (keys %{ $self->client->jwt_claim_key }) {
-    $identity{$claim_name} = $self->client->get_claim_value(
+  foreach my $claim_name (keys %{ $self->client->claim_mapping }) {
+    $identity{$claim_name} //= $self->client->get_claim_value(
       name     => $claim_name,
       claims   => $params{claims},
-      optional => (! any { $claim_name eq $_ } @required_identity_claims),
+      optional => 1,
     );
   }
+
+  my $provider = $self->client->provider;
 
   $self->_store->{oidc}{provider}{$provider}{identity} = \%identity;
 }
@@ -910,9 +902,7 @@ sub _get_expiration_time {
   );
 
   if (my $claims = $params{claims}) {
-    my $expiration_time = $self->client->get_claim_value(name     => 'expiration',
-                                                         claims   => $claims,
-                                                         optional => 1);
+    my $expiration_time = $claims->{exp};
     return $expiration_time if defined $expiration_time;
   }
 

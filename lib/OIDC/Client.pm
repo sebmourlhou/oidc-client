@@ -64,16 +64,8 @@ enum 'ResponseMode' => [qw/query form_post/];
 enum 'GrantType'    => [qw/authorization_code client_credentials password refresh_token/];
 enum 'AuthMethod'   => [qw/post basic/];
 
-Readonly my %DEFAULT_JWT_CLAIM_KEY => (
-  issuer     => 'iss',
-  expiration => 'exp',
-  audience   => 'aud',
-  subject    => 'sub',
-);
-
 Readonly my %DEFAULT_DECODE_JWT_OPTIONS => (
-  verify_exp => 1,   # require valid 'exp' claim
-  leeway     => 60,  # to account for clock skew
+  leeway => 60,  # to account for clock skew
 );
 
 Readonly my $DEFAULT_TOKEN_ENDPOINT_GRANT_TYPE  => 'authorization_code';
@@ -121,11 +113,11 @@ has 'user_agent' => (
   builder => '_build_user_agent',
 );
 
-has 'jwt_claim_key' => (
+has 'claim_mapping' => (
   is      => 'ro',
   isa     => 'HashRef',
   lazy    => 1,
-  builder => '_build_jwt_claim_key',
+  builder => '_build_claim_mapping',
 );
 
 has 'decode_jwt_options' => (
@@ -137,9 +129,9 @@ has 'decode_jwt_options' => (
 
 has 'role_prefix' => (
   is      => 'ro',
-  isa     => 'Str',
+  isa     => 'Maybe[Str]',
   lazy    => 1,
-  default => sub { shift->config->{role_prefix} // '' },
+  default => sub { shift->config->{role_prefix} },
 );
 
 has 'default_token_type' => (
@@ -230,10 +222,10 @@ sub _build_user_agent {
   return $ua;
 }
 
-sub _build_jwt_claim_key {
+sub _build_claim_mapping {
   my $self = shift;
 
-  return $self->config->{jwt_claim_key} || \%DEFAULT_JWT_CLAIM_KEY;
+  return $self->config->{claim_mapping} || {};
 }
 
 sub _build_decode_jwt_options {
@@ -273,7 +265,6 @@ sub BUILD {
   my $self = shift;
 
   $self->_check_configuration();
-  $self->_check_claims_configuration();
   $self->_check_audiences_configuration();
 
   $self->provider;
@@ -555,7 +546,7 @@ The following claims are validated :
 
 =item "exp" (Expiration Time) claim
 
-By default, must be present and valid.
+By default, must be valid (not in the future) if present.
 
 =item "iat" (Issued At) claim
 
@@ -617,7 +608,9 @@ sub verify_token {
 
   # checks the audience
   {
-    my $claim_audience = $self->get_claim_value(name => 'audience', claims => $claims);
+    my $claim_audience = $claims->{aud};
+    defined $claim_audience
+      or croak "OIDC: the audience is not defined";
     ref $claim_audience
       and croak "OIDC: multiple audiences not implemented";
     $claim_audience eq $params{expected_audience}
@@ -628,7 +621,9 @@ sub verify_token {
 
   # checks the subject
   if (my $expected_subject = $params{expected_subject}) {
-    my $claim_subject = $self->get_claim_value(name => 'subject', claims => $claims);
+    my $claim_subject = $claims->{sub};
+    defined $claim_subject
+      or croak "OIDC: the subject is not defined";
     $claim_subject eq $expected_subject
       or OIDC::Client::Error::TokenValidation->throw(
         "OIDC: unexpected subject, expected '$expected_subject' but got '$claim_subject'"
@@ -983,7 +978,7 @@ The hash parameters are:
 
 =item name
 
-Name of the claim configured in the C<jwt_claim_key> section.
+Name of the claim configured in the C<claim_mapping> section.
 
 =item claims
 
@@ -1006,12 +1001,12 @@ sub get_claim_value {
     optional => { isa => 'Bool', default => 0 },
   );
 
-  my $claim_key = $self->jwt_claim_key->{$params{name}}
+  my $claim_key = $self->claim_mapping->{$params{name}}
     or croak("OIDC: no claim key in config for name '$params{name}'");
 
   unless ($params{optional}) {
     exists $params{claims}->{$claim_key}
-      or croak("OIDC: the claim '$claim_key' is not present");
+      or croak("OIDC: the '$claim_key' claim is not present");
   }
 
   return $params{claims}->{$claim_key};
@@ -1110,7 +1105,7 @@ sub _check_configuration {
     scope                            => { isa => 'Str | ArrayRef[Str]', optional => 1 },
     expiration_leeway                => { isa => 'Int', optional => 1 },
     decode_jwt_options               => { isa => 'HashRef', optional => 1 },
-    jwt_claim_key                    => { isa => 'HashRef[Str]', optional => 1 },
+    claim_mapping                    => { isa => 'HashRef[Str]', optional => 1 },
     audience_alias                   => { isa => 'HashRef[HashRef]', optional => 1 },
     authorize_endpoint_response_mode => { isa => 'ResponseMode', optional => 1 },
     authorize_endpoint_extra_params  => { isa => 'HashRef[Str]', optional => 1 },
@@ -1126,15 +1121,6 @@ sub _check_configuration {
     mocked_claims                    => { isa => 'HashRef[Str]', optional => 1 },
     mocked_userinfo                  => { isa => 'HashRef[Str]', optional => 1 },
   );
-}
-
-
-sub _check_claims_configuration {
-  my $self = shift;
-
-  if (my @missing_claim_names = grep { ! $self->jwt_claim_key->{$_} } sort keys %DEFAULT_JWT_CLAIM_KEY) {
-    croak(sprintf('OIDC: claim names are not configured: %s', join(', ', @missing_claim_names)));
-  }
 }
 
 

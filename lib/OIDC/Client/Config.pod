@@ -32,7 +32,7 @@ Stored data persists between requests until the session expires.
 
 Stored data can only be accessed in the current request.
 This may be useful for an API which must validate the token
-in the C<Authorization> header for each request (Authorization Server).
+in the C<Authorization> header for each request (Resource Server).
 
 =back
 
@@ -168,29 +168,18 @@ By default, the transmitted options are :
 
 =over
 
-=item verify_exp: 1
-
-The C<exp> claim must be present
-
 =item leeway: 60
 
 Clock skew of 1 minute
 
 =back
 
-=head2 provider."provider".jwt_claim_key
+=head2 provider."provider".claim_mapping
 
-Used to set the names of the attributes (claims) of the JWT token for creating
-the C<identity> hashref.
+Used to map the claims of an ID token to the I<identity> hashref
+and/or the user informations to an L<OIDC::Client::User> object.
 
-By default, the library uses the names :
-
-    <jwt_claim_key>
-        issuer      iss
-        expiration  exp
-        audience    aud
-        subject     sub
-    </jwt_claim_key>
+By default, no mapping is used.
 
 =head2 provider."provider".audience_alias
 
@@ -331,6 +320,8 @@ Example:
         sub         DOEJ
         exp         123456
         aud         MYAPP
+        scp         scope1
+        scp         scope2
     </mocked_claims>
 
 =head2 provider."provider".mocked_userinfo

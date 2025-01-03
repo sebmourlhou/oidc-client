@@ -191,17 +191,13 @@ Section to be added to your configuration file :
           signin_redirect_path  /oidc/login/callback
           scope                 openid profile email
           expiration_leeway     20
-          <jwt_claim_key>
-              issuer      iss
-              expiration  exp
-              audience    aud
-              subject     sub
-              login       sub
-              lastname    lastName
-              firstname   firstName
-              email       email
-              roles       roles
-          </jwt_claim_key>
+          <claim_mapping>
+              login      sub
+              lastname   lastName
+              firstname  firstName
+              email      email
+              roles      roles
+          </claim_mapping>
           <audience_alias other_app_name>
               audience    other-app-audience
           </audience_alias>
@@ -230,7 +226,7 @@ To setup the plugin when the application is launched :
 To authenticate the end-user :
 
   if (my $identity = $c->oidc->get_stored_identity()) {
-    $c->request->remote_user($identity->{login});
+    $c->request->remote_user($identity->{subject});
   }
   elsif (uc($c->request->method) eq 'GET' && !$c->is_ajax_request()) {
     $c->oidc->redirect_to_authorize();

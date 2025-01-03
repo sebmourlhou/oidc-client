@@ -832,8 +832,8 @@ sub test_get_userinfo {
     my $userinfo = $obj->get_userinfo();
 
     # Then
-    is($userinfo->{lastName}, 'Doe',
-       'expected last name');
+    is($userinfo->{sub}, 'DOEJ',
+       'expected subject');
 
     cmp_deeply([ $obj->client->next_call(4) ],
                [ 'get_userinfo', [ $obj->client, access_token => 'my_access_token', token_type => undef ] ],
@@ -877,8 +877,8 @@ sub test_get_userinfo {
     my $userinfo = $obj->get_userinfo();
 
     # Then
-    is($userinfo->{lastName}, 'Doe',
-       'expected last name');
+    is($userinfo->{sub}, 'DOEJ',
+       'expected subject');
   };
 }
 
@@ -1390,6 +1390,7 @@ sub build_object {
   );
   my %default_userinfo = (
     sub   => 'DOEJ',
+    roles => [qw/role1 role2 role3/],
   );
   my %default_claims = (
     iss   => 'my_issuer',
@@ -1422,7 +1423,7 @@ sub build_object {
   $mock_client->mock(audience       => sub { $config{audience} || 'my_id' });
   $mock_client->mock(provider       => sub { 'my_provider' });
   $mock_client->mock(verify_token        => sub { $params{claims} || \%default_claims });
-  $mock_client->mock(jwt_claim_key  => sub { $config{jwt_claim_key} || \%default_jwt_claim_key });
+  $mock_client->mock(claim_mapping       => sub { $config{claim_mapping} || \%default_claim_mapping });
   $mock_client->mock(get_token      => sub { OIDC::Client::TokenResponse->new(%token) });
   $mock_client->mock(get_token           => sub { OIDC::Client::TokenResponse->new($params{token_response} || \%default_token_response) });
   $mock_client->mock(build_api_useragent => sub { Mojo::UserAgent->new(); });
@@ -1431,7 +1432,7 @@ sub build_object {
   $mock_client->mock(default_token_type => sub { 'Bearer' });
   $mock_client->mock(get_claim_value => sub {
     my ($self, %params) = @_;
-    return $params{claims}->{$self->jwt_claim_key->{$params{name}}};
+    return $params{claims}->{$self->claim_mapping->{$params{name}}};
   });
   $mock_client->mock(get_audience_for_alias => sub {
     my (undef, $alias) = @_;

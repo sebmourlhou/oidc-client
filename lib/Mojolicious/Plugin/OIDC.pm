@@ -175,16 +175,12 @@ Section to be added to your configuration file :
         signin_redirect_path => '/oidc/login/callback',
         scope                => 'openid profile roles email',
         expiration_leeway    => 20,
-        jwt_claim_key => {
-          issuer     => 'iss',
-          expiration => 'exp',
-          audience   => 'aud',
-          subject    => 'sub',
-          login      => 'sub',
-          lastname   => 'lastName',
-          firstname  => 'firstName',
-          email      => 'email',
-          roles      => 'roles',
+        claim_mapping => {
+          login     => 'sub',
+          lastname  => 'lastName',
+          firstname => 'firstName',
+          email     => 'email',
+          roles     => 'roles',
         },
         audience_alias => {
           other_app_name => {
@@ -223,7 +219,7 @@ To authenticate the end-user :
 
     # Authentication
     if (my $identity = $c->oidc->get_stored_identity()) {
-      $c->remote_user($identity->{login});
+      $c->remote_user($identity->{subject});
     }
     elsif (uc($c->req->method) eq 'GET' && !$c->is_ajax_request()) {
       $c->oidc->redirect_to_authorize();
