@@ -17,7 +17,11 @@ This library makes it easy to integrate the OpenID Connect protocol into differe
 - token exchange
 - redirect the browser to the logout URL
 
-## Documentation
+## Security Recommendation
+
+When using OIDC::Client with one of its framework plugins (e.g., for Mojolicious or Catalyst), it is highly recommended to configure the framework to store session data, including sensitive tokens such as access and refresh tokens, on the backend rather than in client-side cookies. Although cookies can be signed and encrypted, storing tokens in the client exposes them to potential security threats.
+
+## Documentation Index
 
 - Mojolicious Application
 

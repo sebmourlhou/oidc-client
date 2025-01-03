@@ -250,32 +250,56 @@ To make an API call with propagation of the security context (token exchange) :
   # Usual call to the API
   my $res = $ua->get($url)->result;
 
-=head2 Authorization Server
+=head2 Resource Server
 
-To check an access token from an Authorization Server, for example, with an application
-using L<Mojolicious::Plugin::OpenAPI>, you can define a security definition :
-
-  use OIDC::Client::UserUtil qw(build_user_from_claims);
+To check an access token from a Resource Server, assuming it's a JWT token.
+For example, with an application using L<Mojolicious::Plugin::OpenAPI>, you can
+define a security definition that checks that the access token is intended for all
+the expected scopes :
 
   $app->plugin(OpenAPI => {
     url      => "data:///swagger.yaml",
     security => {
-      oidc_token => sub {
-        my ($c, $definition, $roles_to_check, $cb) = @_;
+      oidc => sub {
+        my ($c, $definition, $scopes, $cb) = @_;
 
         my $claims = try {
-          # Assuming it's a JWT token
           return $c->oidc->verify_token();
         }
         catch {
           $c->app->log->warn("Token validation : $_");
-          $c->$cb("Invalid or incomplete token");
           return;
-        } or return;
+        } or return $c->$cb("Invalid or incomplete token");
 
-        my $userinfo = $c->oidc->get_userinfo();
-        my $mapping  = $c->oidc->client->jwt_claim_key;
-        my $user     = build_user_from_mapping($userinfo, $mapping);
+        foreach my $expected_scope (@$scopes) {
+          unless ($c->oidc->has_scope($expected_scope)) {
+            return $c->$cb("Insufficient scopes");
+          }
+        }
+
+        return $c->$cb();
+      },
+    }
+  });
+
+Another security definition that checks that the user has at least
+one expected role :
+
+  $app->plugin(OpenAPI => {
+    url      => "data:///swagger.yaml",
+    security => {
+      oidc => sub {
+        my ($c, $definition, $roles_to_check, $cb) = @_;
+
+        my $claims = try {
+          return $c->oidc->verify_token();
+        }
+        catch {
+          $c->app->log->warn("Token validation : $_");
+          return;
+        } or return $c->$cb("Invalid or incomplete token");
+
+        my $user = $c->oidc->build_user_from_userinfo();
 
         foreach my $role_to_check (@$roles_to_check) {
           if ($user->has_role($role_to_check)) {
@@ -287,6 +311,13 @@ using L<Mojolicious::Plugin::OpenAPI>, you can define a security definition :
       },
     }
   });
+
+=head1 SECURITY RECOMMENDATION
+
+It is highly recommended to configure the framework to store session data,
+including sensitive tokens such as access and refresh tokens, on the backend
+rather than in client-side cookies. Although cookies can be signed and encrypted,
+storing tokens in the client exposes them to potential security threats.
 
 =head1 SEE ALSO
 

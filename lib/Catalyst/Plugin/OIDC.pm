@@ -255,6 +255,13 @@ To make an API call with propagation of the security context (token exchange) :
   # Usual call to the API
   my $res = $ua->get($url)->result;
 
+=head1 SECURITY RECOMMENDATION
+
+It is highly recommended to configure the framework to store session data,
+including sensitive tokens such as access and refresh tokens, on the backend
+rather than in client-side cookies. Although cookies can be signed and encrypted,
+storing tokens in the client exposes them to potential security threats.
+
 =cut
 
 __PACKAGE__->meta->make_immutable;
