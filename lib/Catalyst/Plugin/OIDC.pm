@@ -10,6 +10,7 @@ no warnings 'experimental::signatures';
 use Carp qw(croak);
 use Clone qw(clone);
 use List::Util qw(first);
+use Scalar::Util qw(blessed);
 use Try::Tiny;
 use OIDC::Client;
 use OIDC::Client::Plugin;
@@ -136,15 +137,13 @@ sub _oidc_login_callback ($self, $c) {
   }
   catch {
     my $e = $_;
-    $c->log->warn("OIDC: error retrieving token : $e");
+    die $e unless blessed($e) && $e->isa('OIDC::Client::Error');
     if (my $error_path = $c->_oidc_config->{authentication_error_path}) {
+      $c->flash->{error_message} = $e->message;
       $c->response->redirect($c->uri_for($error_path));
     }
     else {
-      $c->response->status(401);
-      OIDC::Client::Error::Authentication->throw(
-        $c->_oidc_config->{authentication_error_message} || ()
-      );
+      OIDC::Client::Error::Authentication->throw($e->message);
     }
   };
 }

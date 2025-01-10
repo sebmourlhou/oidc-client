@@ -92,7 +92,7 @@ $mech->content_like(qr/Welcome/,
 $mech->get('/protected');
 is($mech->status(), 401,
    'expected status');
-$mech->content_is('Error',
+$mech->content_is('Authentication Error',
                   'expected error message');
 
 $mock_oidc_client->redefine('decode_jwt' => sub {

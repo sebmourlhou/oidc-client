@@ -26,7 +26,8 @@ sub protected : Global {
 
 sub error : Chained('/') : PathPart('error') : Args(1) {
     my ( $self, $c, $http_code ) = @_;
-    $c->response->body( 'Error' );
+    $c->log->warn("OIDC error : " . $c->flash->{error_message});
+    $c->response->body( 'Authentication Error' );
     $c->response->status($http_code);
 }
 

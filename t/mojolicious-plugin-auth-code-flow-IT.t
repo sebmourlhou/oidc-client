@@ -18,7 +18,8 @@ get('/protected' => sub {
     });
 get('/error/:code' => sub {
       my $c = shift;
-      $c->render(text   => 'Error',
+      $c->log->warn("OIDC error : " . $c->flash('error_message'));
+      $c->render(text   => 'Authentication Error',
                  status => $c->stash('code'));
     });
 
@@ -84,12 +85,12 @@ plugin 'OIDC' => {
 };
 
 my $t = Test::Mojo->new(app);
-$t->ua->max_redirects(10);
+$t->ua->max_redirects(3);
 
 # invalid token format
 $t->get_ok('/protected')
   ->status_is(401)
-  ->content_is('Error');
+  ->content_is('Authentication Error');
 
 $mock_oidc_client->redefine('decode_jwt' => sub {
   {

@@ -11,6 +11,7 @@ requires 'Moose';
 requires 'Moose::Util::TypeConstraints';
 requires 'MooseX::Params::Validate';
 requires 'Readonly';
+requires 'Scalar::Util';
 requires 'Throwable::Error';
 requires 'Try::Tiny';
 requires 'namespace::autoclean';

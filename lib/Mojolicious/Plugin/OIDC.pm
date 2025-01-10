@@ -3,6 +3,7 @@ use Mojo::Base 'Mojolicious::Plugin', -signatures;
 
 use Carp qw(croak);
 use Clone qw(clone);
+use Scalar::Util qw(blessed);
 use Try::Tiny;
 use OIDC::Client;
 use OIDC::Client::Plugin;
@@ -119,15 +120,13 @@ sub _login_callback ($self, $c) {
   }
   catch {
     my $e = $_;
-    $c->app->log->warn("OIDC: error retrieving token : $e");
+    die $e unless blessed($e) && $e->isa('OIDC::Client::Error');
     if (my $error_path = $self->_oidc_config->{authentication_error_path}) {
+      $c->flash('error_message' => $e->message);
       $c->redirect_to($c->url_for($error_path));
     }
     else {
-      $c->res->code(401);
-      OIDC::Client::Error::Authentication->throw(
-        $self->_oidc_config->{authentication_error_message} || ()
-      );
+      OIDC::Client::Error::Authentication->throw($e->message);
     }
   };
 }

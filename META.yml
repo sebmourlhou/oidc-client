@@ -35,6 +35,7 @@ requires:
   Moose::Util::TypeConstraints: '0'
   MooseX::Params::Validate: '0'
   Readonly: '0'
+  Scalar::Util: '0'
   Throwable::Error: '0'
   Try::Tiny: '0'
   namespace::autoclean: '0'
