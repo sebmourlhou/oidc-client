@@ -610,6 +610,7 @@ Default to L<OIDC::Client::User>.
 sub build_user_from_identity {
   my $self = shift;
   my ($user_class) = pos_validated_list(\@_, { isa => 'Str', default => 'OIDC::Client::User' });
+  load($user_class);
 
   my $identity = $self->get_stored_identity()
     or croak("OIDC: no identity has been stored");
