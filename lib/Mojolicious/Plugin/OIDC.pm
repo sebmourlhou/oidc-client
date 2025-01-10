@@ -91,7 +91,7 @@ sub _helper_oidc ($self, $c, $provider = undef) {
     if $plugin && $plugin->client->provider eq $client->provider;
 
   $plugin = $c->stash->{oidc}{plugin} = OIDC::Client::Plugin->new(
-    log             => $c->app->log,
+    log             => $c->log,
     store_mode      => $self->_oidc_config->{store_mode} || 'session',
     request_params  => $c->req->params->to_hash,
     request_headers => $c->req->headers->to_hash,
@@ -134,7 +134,7 @@ sub _login_callback ($self, $c) {
 # code executed on callback after user logout
 sub _logout_callback ($self, $c) {
 
-  $c->app->log->debug('Logging out');
+  $c->log->debug('Logging out');
   $c->session(expires => 1);
 
   $c->redirect_to($c->flash('oidc_target_url') || $c->url_for('/'));
@@ -266,7 +266,7 @@ the expected scopes :
           return $c->oidc->verify_token();
         }
         catch {
-          $c->app->log->warn("Token validation : $_");
+          $c->log->warn("Token validation : $_");
           return;
         } or return $c->$cb("Invalid or incomplete token");
 

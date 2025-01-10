@@ -36,14 +36,14 @@ OIDC::Client - OpenID Connect Client
     id                => 'my_client_id',
     secret            => 'my_client_secret',
     provider_metadata => \%provider_metadata,
-    log               => $your_app->log,
+    log               => $app->log,
   );
 
   # or...
 
   my $client = OIDC::Client->new(
     config => $config_provider,
-    log    => $your_app->log,
+    log    => $app->log,
   );
 
   my $token_response = $client->get_token(
