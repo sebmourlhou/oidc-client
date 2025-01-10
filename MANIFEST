@@ -32,6 +32,7 @@ t/lib/MyCatalystApp/lib/MyCatalystApp/View/JSON.pm
 t/lib/MyCatalystApp/mycatalystapp.conf
 t/lib/OIDCClientTest.pm
 t/mojolicious-plugin-auth-code-flow-IT.t
+t/mojolicious-plugin-resource-server-IT.t
 t/plugin.t
 t/response-parser.t
 t/token-response-parser.t
