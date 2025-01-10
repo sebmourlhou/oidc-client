@@ -304,7 +304,8 @@ and sent back from the IDP in the returned ID Token.
 
 =item scope
 
-Specifies the scopes of the token. Can be a space separated list or an arrayref of string.
+Specifies the desired scope of the requested token.
+Must be a string with space separators.
 Can also be specified in the C<scope> configuration entry.
 
 =item audience
@@ -334,7 +335,7 @@ sub auth_url {
     redirect_uri  => { isa => 'Str', optional => 1 },
     state         => { isa => 'Str', optional => 1 },
     nonce         => { isa => 'Str', optional => 1 },
-    scope         => { isa => 'Str | ArrayRef[Str]', optional => 1 },
+    scope         => { isa => 'Str', optional => 1 },
     audience      => { isa => 'Str', optional => 1 },
     extra_params  => { isa => 'HashRef', optional => 1 },
     want_mojo_url => { isa => 'Bool', default => 0 },
@@ -363,7 +364,7 @@ sub auth_url {
   }
 
   if (my $scope = $params{scope} || $self->config->{scope}) {
-    $args{scope} = ref $scope ? join(' ', @$scope) : $scope;
+    $args{scope} = $scope;
   }
 
   if (my $audience = $params{audience} || $self->config->{audience}) {
@@ -440,7 +441,8 @@ Not used for the C<refresh_token> grant-type.
 
 =item scope
 
-Specifies the scopes of the token. Can be a space separated list or an arrayref of string.
+Specifies the desired scope of the requested token.
+Must be a string with space separators.
 Can also be specified in the C<scope> configuration entry.
 Not used for the C<authorization_code> nor the C<refresh_token> grant-type.
 
@@ -464,7 +466,7 @@ sub get_token {
     username      => { isa => 'Str', optional => 1 },
     password      => { isa => 'Str', optional => 1 },
     audience      => { isa => 'Str', optional => 1 },
-    scope         => { isa => 'Str | ArrayRef[Str]', optional => 1 },
+    scope         => { isa => 'Str', optional => 1 },
     refresh_token => { isa => 'Str', optional => 1 },
   );
 
@@ -511,7 +513,7 @@ sub get_token {
 
   unless ($grant_type =~ /^(authorization_code|refresh_token)$/) {
     if (my $scope = ($params{scope} || $self->config->{scope})) {
-      $args{scope} = ref $scope ? join(' ', @$scope) : $scope;
+      $args{scope} = $scope;
     }
   }
 
@@ -785,6 +787,12 @@ Content of the valid access token obtained through OIDC authentication.
 
 Audience of the target application.
 
+=item scope
+
+Specifies the desired scope of the requested token.
+Must be a string with space separators.
+Optional.
+
 =back
 
 =cut
@@ -795,7 +803,7 @@ sub exchange_token {
     \@_,
     token    => { isa => 'Str', optional => 0 },
     audience => { isa => 'Str', optional => 0 },
-    scope    => { isa => 'Str | ArrayRef[Str]', optional => 1 },
+    scope    => { isa => 'Str', optional => 1 },
   );
 
   my %args = (
@@ -808,7 +816,7 @@ sub exchange_token {
   );
 
   if (my $scope = ($params{scope} || $self->get_scope_for_audience($params{audience}))) {
-    $args{scope} = ref $scope ? join(' ', @$scope) : $scope;
+    $args{scope} = $scope;
   }
 
   my $token_url = $self->provider_metadata->{token_url}
@@ -1102,7 +1110,7 @@ sub _check_configuration {
     end_session_url                  => { isa => 'Str', optional => 1 },
     signin_redirect_path             => { isa => 'Str', optional => 1 },
     signin_redirect_uri              => { isa => 'Str', optional => 1 },
-    scope                            => { isa => 'Str | ArrayRef[Str]', optional => 1 },
+    scope                            => { isa => 'Str', optional => 1 },
     expiration_leeway                => { isa => 'Int', optional => 1 },
     decode_jwt_options               => { isa => 'HashRef', optional => 1 },
     claim_mapping                    => { isa => 'HashRef[Str]', optional => 1 },
@@ -1141,7 +1149,7 @@ sub _check_audiences_configuration {
     validated_hash(
       \@config_audience,
       audience => { isa => 'Str', optional => 0 },
-      scope    => { isa => 'Str | ArrayRef[Str]', optional => 1 },
+      scope    => { isa => 'Str', optional => 1 },
     );
   }
 }

@@ -150,9 +150,7 @@ to the application once authentication has been completed.
 
 =head2 provider."provider".scope
 
-List of scopes defining the scope of rights attached to the token transmitted.
-
-Can be an array of strings or a string with space separators.
+String with space separators defining the desired scope of rights of the requested token.
 
 =head2 provider."provider".expiration_leeway
 
@@ -199,9 +197,8 @@ Audience to be used for this audience alias.
 
 =head2 provider."provider".audience_alias.scope
 
-List of scopes to be sent for this audience alias.
-
-Can be an array of strings or a string with space separators.
+String with space separators defining the desired scope of rights of the requested
+exchanged token.
 
 =head2 provider."provider".authorize_endpoint_response_mode
 

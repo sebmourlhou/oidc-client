@@ -887,7 +887,7 @@ sub test_get_token_password {
         token_endpoint_auth_method => 'basic',
         username                   => 'my_username',
         password                   => 'my_password',
-        scope                      => ['my_scope1', 'my_scope2'],
+        scope                      => 'my_scope1 my_scope2',
         audience                   => 'my_audience',
       },
       provider_metadata => { token_url => 'https://my-provider/token' },
@@ -1493,10 +1493,6 @@ sub test_get_scope_for_audience {
             audience => 'audience2',
             scope    => 'scope_audience2',
           },
-          alias3 => {
-            audience => 'audience3',
-            scope    => ['scope1_audience3', 'scope2_audience3'],
-          },
         },
       },
     );
@@ -1516,14 +1512,6 @@ sub test_get_scope_for_audience {
       # Then
       is($scope, 'scope_audience2',
          'expected scope');
-    }
-    {
-      # When
-      my $scope = $client->get_scope_for_audience('audience3');
-
-      # Then
-      cmp_deeply($scope, ['scope1_audience3', 'scope2_audience3'],
-         'expected list of scopes');
     }
   };
 }
@@ -1633,7 +1621,7 @@ sub test_exchange_token {
         audience_alias => {
           my_alias => {
             audience => 'my_audience',
-            scope    => ['my_scope1', 'my_scope2'],
+            scope    => 'my_scope1 my_scope2',
           },
         },
       },
