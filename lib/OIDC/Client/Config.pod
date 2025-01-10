@@ -40,16 +40,14 @@ in the C<Authorization> header for each request (Resource Server).
 
 Relative path of the endpoint to which the browser is redirected if an error
 is returned by the provider during the callback to the application after
-an authentication attempt or if an error occurs when the token is retrieved
-in exchange for the code.
+an authentication attempt, if an error occurs when the token is retrieved
+in exchange for the code or if an error occurs when verifying the token.
 
-If this path is not configured, an error, with the message configured
-in C<authentication_error_message> or else a generic message, is thrown with
-an HTTP 401 code.
+From the redirection endpoint, the error message is present in
+C<error_message> flash data.
 
-=head2 authentication_error_message
-
-Message used to return an error if C<authentication_error_path> is not set.
+If this path is not configured, an L<OIDC::Client::Error::Authentication> error
+is thrown.
 
 =head2 provider."provider".proxy_detect
 
@@ -158,9 +156,9 @@ Number of seconds of leeway for a token to be considered expired before it actua
 
 =head2 provider."provider".decode_jwt
 
-Options to be transferred to the library
-[Crypt::JWT](https://metacpan.org/pod/Crypt::JWT#decode_jwt) used to validate
-and decode a JWT token.
+Options to be transferred to the
+[Crypt::JWT::decode_jwt()](https://metacpan.org/pod/Crypt::JWT#decode_jwt)
+function used to validate and decode a JWT token.
 
 By default, the transmitted options are :
 
@@ -181,7 +179,7 @@ By default, no mapping is used.
 
 =head2 provider."provider".audience_alias
 
-Audience configuration.
+Audience configuration for token exchanges.
 
 Gives an alias to an audience rather than using the technical identifier.
 

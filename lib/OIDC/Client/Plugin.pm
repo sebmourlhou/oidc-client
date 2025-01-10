@@ -428,7 +428,7 @@ sub exchange_token {
 }
 
 
-=head2 verify_token( %args )
+=head2 verify_token()
 
   my $claims = $c->oidc->verify_token();
 
@@ -1008,6 +1008,7 @@ sub _generate_uuid_string {
   my $self = shift;
   return $self->uuid_generator->to_string($self->uuid_generator->create());
 }
+
 
 sub _check_state_parameter {
   my $self = shift;

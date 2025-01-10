@@ -55,8 +55,9 @@ OIDC::Client - OpenID Connect Client
 
 Client module for OpenID Connect protocol.
 
-For use from within an application, you should use the framework plugin
-included in the L<OIDC-Client|https://metacpan.org/dist/OIDC-Client> distribution.
+Use this module directly from a batch or a simple script. For use from within
+an application, you should instead use the framework plugin included in the
+L<OIDC-Client|https://metacpan.org/dist/OIDC-Client> distribution.
 
 =cut
 
@@ -286,6 +287,24 @@ This is the URL to use to initiate an authorization code flow.
 The optional parameters are:
 
 =over 2
+
+=item response_mode
+
+Defines how tokens are sent by the provider.
+
+Can take one of these values:
+
+=over 2
+
+=item query
+
+Tokens are sent in query parameters.
+
+=item form_post
+
+Tokens are sent in a POST form.
+
+=back
 
 =item redirect_uri
 
@@ -536,11 +555,17 @@ sub get_token {
   my $claims = $client->verify_token(
     token             => $token,
     expected_audience => $audience,
-    expected_subject  => $subject,
+    expected_nonce    => $nonce,
   );
 
 Checks the structure, claims and signature of the JWT token.
-Throws an exception if an error occurs. Otherwise, returns the claims.
+Throws an L<OIDC::Client::Error::TokenValidation> exception if an error occurs.
+Otherwise, returns the claims.
+
+This method automatically manages a JWK key rotation. If a JWK key error
+is detected during token verification, the JWK keys in memory are refreshed
+by retrieving them again from the JWKS URL. The token is checked again, and if
+an error occurs, an L<OIDC::Client::Error::TokenValidation> exception is thrown.
 
 The following claims are validated :
 
@@ -568,9 +593,13 @@ Must be the expected audience (see parameters beelow).
 
 =item "sub" (Subject) claim
 
-Must be the expected subject if defined (see parameters beelow).
+Must be the expected subject defined in the parameters (see beelow).
 
 =back
+
+The [Crypt::JWT::decode_jwt()](https://metacpan.org/pod/Crypt::JWT#decode_jwt)
+function is used to validate and decode a JWT token. Remember that you can change
+the options transmitted to this function (see L<OIDC::Client::Config>).
 
 The parameters are:
 
@@ -588,8 +617,13 @@ Default to the C<audience> configuration entry or otherwise the client id.
 
 =item expected_subject
 
-If the subject of the token is not the expected subject, an exception is thrown.
-Optional, default to the C<username> configuration entry if any.
+If the C<subject> claim value is not the expected subject, an exception is thrown.
+Optional.
+
+=item expected_nonce
+
+If the C<nonce> claim value is not the expected nonce, an exception is thrown.
+Optional.
 
 =back
 
@@ -770,8 +804,8 @@ sub get_scope_for_audience {
     audience => $audience,
   );
 
-Exchanges a token, obtained through OIDC authentication, for a token that
-is accepted by a different OIDC application.
+Exchanges an access token, obtained through OIDC authentication, for another access
+token that is accepted by a different OIDC application.
 
 Returns a L<OIDC::Client::TokenResponse> object.
 
@@ -1063,6 +1097,7 @@ Simple pass-through of the Crypt::JWT::decode_jwt() function that can be mocked 
 =cut
 
 sub decode_jwt { Crypt::JWT::decode_jwt(@_) }
+
 
 sub _decode_token {
   my ($self, $token, $has_already_update_keys) = @_;

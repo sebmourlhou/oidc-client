@@ -72,10 +72,22 @@ sub register ($self, $app, $config) {
 }
 
 
-=head2 oidc
+=head1 METHODS ADDED TO THE APPLICATION
+
+=head2 oidc( $provider )
+
+  # with just one provider
+  my $oidc = $c->oidc;
+  # or
+  my $oidc = $c->oidc('my_provider');
+
+  # with several providers
+  my $oidc = $c->oidc('my_provider_1');
 
 Creates and returns an instance of L<OIDC::Client::Plugin> with the data
 from the current request and session.
+
+If several providers are configured, the I<$provider> parameter is mandatory.
 
 This is the application's entry point to the library. Please see the
 L<OIDC::Client::Plugin> documentation to find out what methods are available.
@@ -290,15 +302,14 @@ one expected role :
       oidc => sub {
         my ($c, $definition, $roles_to_check, $cb) = @_;
 
-        my $claims = try {
-          return $c->oidc->verify_token();
+        my $user = try {
+          $c->oidc->verify_token();
+          return $c->oidc->build_user_from_userinfo();
         }
         catch {
-          $c->app->log->warn("Token validation : $_");
+          $c->log->warn("Token/User validation : $_");
           return;
-        } or return $c->$cb("Invalid or incomplete token");
-
-        my $user = $c->oidc->build_user_from_userinfo();
+        } or return $c->$cb('Unauthorized');
 
         foreach my $role_to_check (@$roles_to_check) {
           if ($user->has_role($role_to_check)) {
