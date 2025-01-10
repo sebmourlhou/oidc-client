@@ -601,7 +601,7 @@ sub verify_token {
     \@_,
     token             => { isa => 'Str', optional => 0 },
     expected_audience => { isa => 'Str', default => $self->audience },
-    expected_subject  => { isa => 'Maybe[Str]', default => $self->config->{username} },
+    expected_subject  => { isa => 'Str', optional => 1 },
     expected_nonce    => { isa => 'Str', optional => 1 },
   );
 
