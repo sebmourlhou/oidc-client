@@ -56,7 +56,7 @@ my %WriteMakefileArgs = (
     "Test::More" => 0,
     "Test::WWW::Mechanize::Catalyst::WithContext" => "0.03"
   },
-  "VERSION" => "0.02",
+  "VERSION" => "0.03",
   "test" => {
     "TESTS" => "t/*.t"
   }
