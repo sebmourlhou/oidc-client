@@ -974,6 +974,54 @@ sub test_build_user_from_userinfo {
   };
 }
 
+sub test_build_user_from_claims {
+  subtest "test_build_user_from_claims()" => sub {
+
+    # Prepare
+    my %claim_mapping = (
+      login     => 'sub',
+      lastname  => 'lastName',
+      firstname => 'firstName',
+      email     => 'email',
+      roles     => 'roles',
+    );
+    my %claims = (
+      sub         => 'DOEJ',
+      firstName   => 'John',
+      lastName    => 'Doe',
+      email       => 'john.doe@mydomain.com',
+      roles       => [qw/app.role1 app.role2/],
+      nationality => 'USA',
+    );
+
+    # Given
+    my $obj = build_object(
+      config   => { claim_mapping => \%claim_mapping,
+                    role_prefix   => 'app.' },
+    );
+    store_access_token(
+      $obj,
+      { token         => 'my_access_token',
+        refresh_token => 'my_refresh_token' }
+    );
+
+    # When
+    my $user = $obj->build_user_from_claims(\%claims);
+
+    # Then
+    my $expected_user = OIDC::Client::User->new(
+      login       => 'DOEJ',
+      lastname    => 'Doe',
+      firstname   => 'John',
+      email       => 'john.doe@mydomain.com',
+      roles       => [qw/app.role1 app.role2/],
+      role_prefix => 'app.',
+    );
+    cmp_deeply($user, $expected_user,
+               'expected user');
+  };
+}
+
 sub test_build_user_from_identity {
   subtest "build_user_from_identity()" => sub {
 

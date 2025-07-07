@@ -568,16 +568,53 @@ Default to L<OIDC::Client::User>.
 sub build_user_from_userinfo {
   my $self = shift;
   my ($user_class) = pos_validated_list(\@_, { isa => 'Str', default => 'OIDC::Client::User' });
+
+  my $userinfo = $self->get_userinfo();
+
+  return $self->build_user_from_claims($userinfo, $user_class);
+}
+
+
+=head2 build_user_from_claims( $claims, $user_class )
+
+  my $user = $c->oidc->build_user_from_claims($claims);
+
+Returns a user object (L<OIDC::Client::User> by default) based on provided claims.
+
+This method can be useful, for example, if the access token is a JWT token that has just been
+verified with the L<verify_token()> method and already contains the relevant information
+without having to call the C<userinfo> endpoint.
+
+The list parameters are:
+
+=over 2
+
+=item claims
+
+Hashref of claims.
+
+=item user_class
+
+Optional class to be used to instantiate the user.
+Default to L<OIDC::Client::User>.
+
+=back
+
+=cut
+
+sub build_user_from_claims {
+  my $self = shift;
+  my ($claims, $user_class) = pos_validated_list(\@_, { isa => 'HashRef', optional => 0 },
+                                                      { isa => 'Str', default => 'OIDC::Client::User' });
   load($user_class);
 
-  my $userinfo    = $self->get_userinfo();
   my $mapping     = $self->client->claim_mapping;
   my $role_prefix = $self->client->role_prefix;
 
   return $user_class->new(
     (
-      map { $_ => $userinfo->{ $mapping->{$_} } }
-      grep { exists $userinfo->{ $mapping->{$_} } }
+      map { $_ => $claims->{ $mapping->{$_} } }
+      grep { exists $claims->{ $mapping->{$_} } }
       keys %$mapping
     ),
     defined $role_prefix ? (role_prefix => $role_prefix) : (),
