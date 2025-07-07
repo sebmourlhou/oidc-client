@@ -406,7 +406,7 @@ sub exchange_token {
     or croak("OIDC: no audience for alias '$audience_alias'");
 
   my $access_token = $self->get_valid_access_token()
-    or croak("OIDC: cannot retrieve the access token");
+    or OIDC::Client::Error::Authentication->throw("OIDC: cannot retrieve a valid access token");
 
   my $exchanged_token_response = $self->client->exchange_token(
     token    => $access_token->{token},
@@ -505,7 +505,7 @@ sub has_scope {
   my ($expected_scope) = pos_validated_list(\@_, { isa => 'Str', optional => 0 });
 
   my $stored_token = $self->get_valid_access_token()
-    or croak("OIDC: cannot retrieve the access token");
+    or OIDC::Client::Error::Authentication->throw("OIDC: cannot retrieve a valid access token");
 
   my $scopes = $stored_token->{scopes}
     or return 0;
@@ -535,7 +535,7 @@ sub get_userinfo {
   }
 
   my $stored_token = $self->get_valid_access_token()
-    or croak("OIDC: cannot retrieve the access token");
+    or OIDC::Client::Error::Authentication->throw("OIDC: cannot retrieve a valid access token");
 
   return $self->client->get_userinfo(
     access_token => $stored_token->{token},
@@ -640,7 +640,8 @@ The list parameters are:
 
 =item audience_alias
 
-Alias configured for the audience of the other application.
+Optional alias configured for the audience of the other application.
+If this parameter is missing, the default audience (current application) is used.
 
 =back
 
@@ -648,21 +649,28 @@ Alias configured for the audience of the other application.
 
 sub build_api_useragent {
   my $self = shift;
-  my ($audience_alias) = pos_validated_list(\@_, { isa => 'Str', optional => 0 });
+  my ($audience_alias) = pos_validated_list(\@_, { isa => 'Str', optional => 1 });
 
-  my $exchanged_token = try {
-    return $self->get_valid_access_token($audience_alias);
+  my $token;
+
+  if (defined $audience_alias) {
+    $token = try {
+      return $self->get_valid_access_token($audience_alias);
+    }
+    catch {
+      $self->log_msg(warning => "OIDC: error getting valid access token : $_");
+      return;
+    };
+    $token ||= $self->exchange_token($audience_alias);
   }
-  catch {
-    $self->log_msg(warning => "OIDC: error getting valid access token : $_");
-    return;
-  };
-
-  $exchanged_token ||= $self->exchange_token($audience_alias);
+  else {
+    $token = $self->get_valid_access_token()
+      or OIDC::Client::Error::Authentication->throw("OIDC: cannot retrieve a valid access token");
+  }
 
   return $self->client->build_api_useragent(
-    token      => $exchanged_token->{token},
-    token_type => $exchanged_token->{token_type},
+    token      => $token->{token},
+    token_type => $token->{token_type},
   );
 }
 

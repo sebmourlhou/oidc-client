@@ -524,8 +524,9 @@ sub test_exchange_token_with_exceptions {
     # When - Then
     throws_ok {
       $obj->exchange_token('my_audience_alias');
-    } qr/cannot retrieve the access token/,
+    } qr/cannot retrieve a valid access token/,
       'expected exception';
+    isa_ok($@, 'OIDC::Client::Error::Authentication');
   };
 }
 
@@ -1161,6 +1162,33 @@ sub test_build_api_useragent {
       $obj->build_api_useragent('my_audience_alias');
     } qr/AAAAAhhhh/,
       'expected exception';
+  };
+
+  subtest "build_api_useragent() for current audience" => sub {
+
+    # Given
+    my $obj = build_object();
+    store_access_token(
+      $obj,
+      { token         => 'my_access_token_for_current_audience',
+        token_type    => 'my_token_type_for_current_audience',
+        refresh_token => 'my_refresh_token_for_current_audience' }
+    );
+    store_identity(
+      $obj,
+      { subject => 'my_subject' }
+    );
+
+    # When
+    my $ua = $obj->build_api_useragent();
+
+    # Then
+    isa_ok($ua, 'Mojo::UserAgent');
+
+    cmp_deeply([ $obj->client->next_call(4) ],
+               [ 'build_api_useragent', bag($obj->client, token_type => 'my_token_type_for_current_audience',
+                                                          token      => 'my_access_token_for_current_audience') ],
+               'expected call to client');
   };
 }
 
