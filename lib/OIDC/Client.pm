@@ -424,7 +424,7 @@ sub auth_url {
 Fetch token(s) from an OAuth2/OIDC provider and returns a
 L<OIDC::Client::TokenResponse> object.
 
-This method doesn't execute any verification. Call the L<verify_token>
+This method doesn't execute any verification. Call the L</"verify_token( %args )">
 method to do so.
 
 The optional parameters are:
@@ -690,34 +690,11 @@ sub verify_token {
 }
 
 
-=head2 has_expired( $expiration_time )
-
-  my $has_expired = $client->has_expired($token->{expires_at});
-
-Returns true if the timestamp passed in parameter has expired.
-The configuration entry C<expiration_leeway> is included
-in the calculation if present.
-
-=cut
-
-sub has_expired {
-  my $self = shift;
-  my ($expiration_time) = pos_validated_list(\@_, { isa => 'Int', optional => 0 });
-
-  my $now = time;
-  my $leeway = $self->config->{expiration_leeway} || 0;
-  my $including_leeway_time = $expiration_time - $leeway;
-  $self->log_msg(debug => "OIDC: expiration time (leeway = $leeway) : $including_leeway_time");
-
-  return $including_leeway_time < $now;
-}
-
-
 =head2 get_userinfo( %args )
 
   my $userinfo = $client->get_userinfo(
-    access_token => $stored_token->{token},
-    token_type   => $stored_token->{token_type},
+    access_token => $stored_token->token,
+    token_type   => $stored_token->token_type,
   );
 
 Get and returns the user information from an OAuth2/OIDC provider.
@@ -893,7 +870,7 @@ The optional parameters are:
 
 Content of the access token to send to the other application.
 
-If it is not passed as parameter, the method L<get_token> is invoked
+If it is not passed as parameter, the L</"get_token( %args )"> method  is invoked
 without any parameter to retrieve the token from the provider.
 This can be useful if the client is configured for a password grant
 or a client credentials grant.
