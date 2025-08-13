@@ -181,8 +181,7 @@ Clock skew of 1 minute
 
 =head2 provider."provider".claim_mapping
 
-Used to map the claims of an ID token to the I<identity> hashref
-and/or the user informations to an L<OIDC::Client::User> object.
+Used to map token claims or user information to an L<OIDC::Client::User> object.
 
 By default, no mapping is used.
 

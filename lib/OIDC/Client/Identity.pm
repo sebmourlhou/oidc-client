@@ -32,7 +32,7 @@ has 'expires_at' => (
 
 =head1 NAME
 
-OIDC::Client::Identity - Identity
+OIDC::Client::Identity - Identity class
 
 =head1 DESCRIPTION
 
