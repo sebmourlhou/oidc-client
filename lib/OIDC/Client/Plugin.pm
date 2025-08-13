@@ -1117,7 +1117,7 @@ sub _get_scopes_from_claims {
 
 sub _generate_uuid_string {
   my $self = shift;
-  return $self->uuid_generator->to_string($self->uuid_generator->create());
+  return $self->uuid_generator->create_str();
 }
 
 
