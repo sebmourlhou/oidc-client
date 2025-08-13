@@ -40,7 +40,7 @@ has 'scopes' => (
 
 =head1 NAME
 
-OIDC::Client::AccessToken - Access Token
+OIDC::Client::AccessToken - Access Token class
 
 =head1 DESCRIPTION
 

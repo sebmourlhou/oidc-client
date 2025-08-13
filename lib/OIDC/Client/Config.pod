@@ -16,6 +16,11 @@ the configuration entry names.
 
 =head1 ENTRIES
 
+=head2 default_provider
+
+Defines the provider name to use by the framework plugin when no one has
+been specified in the call to the C<oidc($provider)> method.
+
 =head2 store_mode
 
 Defines where the tokens are stored.
@@ -181,8 +186,7 @@ Clock skew of 1 minute
 
 =head2 provider."provider".claim_mapping
 
-Used to map the claims of an ID token to the I<identity> hashref
-and/or the user informations to an L<OIDC::Client::User> object.
+Used to map token claims or user information to an L<OIDC::Client::User> object.
 
 By default, no mapping is used.
 
