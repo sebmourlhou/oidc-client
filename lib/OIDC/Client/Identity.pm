@@ -42,15 +42,15 @@ Class representing an identity
 
 =head2 subject
 
-The subject identifier coming from the ID token
+The subject identifier coming from the ID token. Required
 
 =head2 claims
 
-Hashref of claims coming from an ID token
+Hashref of claims coming from the ID token. Required
 
 =head2 token
 
-The string of the ID token
+The string of the ID token. Required
 
 =head2 expires_at
 

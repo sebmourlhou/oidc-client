@@ -72,6 +72,7 @@ L<Catalyst::Plugin::OIDC>
 
 =cut
 
+enum 'StoreMode'    => [qw/session stash/];
 enum 'ResponseMode' => [qw/query form_post/];
 enum 'GrantType'    => [qw/authorization_code client_credentials password refresh_token/];
 enum 'AuthMethod'   => [qw/post basic/];
@@ -1118,6 +1119,7 @@ sub _check_configuration {
   validated_hash(
     \@config,
     provider                         => { isa => 'Str', optional => 1 },
+    store_mode                       => { isa => 'StoreMode', optional => 1 },
     proxy_detect                     => { isa => 'Bool', optional => 1 },
     user_agent                       => { isa => 'Str', optional => 1 },
     id                               => { isa => 'Str', optional => 1 },
@@ -1140,7 +1142,7 @@ sub _check_configuration {
     claim_mapping                    => { isa => 'HashRef[Str]', optional => 1 },
     audience_alias                   => { isa => 'HashRef[HashRef]', optional => 1 },
     authorize_endpoint_response_mode => { isa => 'ResponseMode', optional => 1 },
-    authorize_endpoint_extra_params  => { isa => 'HashRef[Str]', optional => 1 },
+    authorize_endpoint_extra_params  => { isa => 'HashRef', optional => 1 },
     token_endpoint_grant_type        => { isa => 'GrantType', optional => 1 },
     token_endpoint_auth_method       => { isa => 'AuthMethod', optional => 1 },
     username                         => { isa => 'Str', optional => 1 },
@@ -1148,10 +1150,10 @@ sub _check_configuration {
     logout_redirect_path             => { isa => 'Str', optional => 1 },
     post_logout_redirect_uri         => { isa => 'Str', optional => 1 },
     logout_with_id_token             => { isa => 'Str', optional => 1 },
-    logout_extra_params              => { isa => 'HashRef[Str]', optional => 1 },
-    mocked_identity                  => { isa => 'HashRef[Str]', optional => 1 },
-    mocked_claims                    => { isa => 'HashRef[Str]', optional => 1 },
-    mocked_userinfo                  => { isa => 'HashRef[Str]', optional => 1 },
+    logout_extra_params              => { isa => 'HashRef', optional => 1 },
+    mocked_identity                  => { isa => 'HashRef', optional => 1 },
+    mocked_access_token              => { isa => 'HashRef', optional => 1 },
+    mocked_userinfo                  => { isa => 'HashRef', optional => 1 },
   );
 }
 
