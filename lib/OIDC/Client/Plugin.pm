@@ -36,13 +36,6 @@ It contains all the methods available in the application.
 =cut
 
 enum 'RedirectType' => [qw/login logout/];
-enum 'StoreMode'    => [qw/session stash/];
-
-has 'store_mode' => (
-  is       => 'ro',
-  isa      => 'StoreMode',
-  required => 1,
-);
 
 has 'request_params' => (
   is       => 'ro',
@@ -881,7 +874,7 @@ sub get_stored_identity {
   }
 
   my $provider = $self->client->provider;
-  my $identity = $self->_store->{oidc}{provider}{$provider}{identity}
+  my $identity = $self->_get_store()->{oidc}{provider}{$provider}{identity}
     or return;
 
   return OIDC::Client::Identity->new($identity);
@@ -920,7 +913,7 @@ sub _store_identity {
   my $provider = $self->client->provider;
 
   # not stored as Identity object because we can't rely on the session engine to preserve its type
-  $self->_store->{oidc}{provider}{$provider}{identity} = \%identity;
+  $self->_get_store()->{oidc}{provider}{$provider}{identity} = \%identity;
 }
 
 
@@ -960,7 +953,7 @@ sub get_stored_access_token {
 
   my $provider = $self->client->provider;
 
-  my $access_token = $self->_store->{oidc}{provider}{$provider}{access_token}{audience}{$audience}
+  my $access_token = $self->_get_store()->{oidc}{provider}{$provider}{access_token}{audience}{$audience}
     or return;
 
   return OIDC::Client::AccessToken->new($access_token);
@@ -987,7 +980,7 @@ sub store_access_token {
                                  : $self->client->audience;
 
   # stored as a hashref because we can't rely on the session engine to preserve the object type
-  $self->_store->{oidc}{provider}{$provider}{access_token}{audience}{$audience} = $access_token->to_hashref;
+  $self->_get_store()->{oidc}{provider}{$provider}{access_token}{audience}{$audience} = $access_token->to_hashref;
 }
 
 
@@ -1067,11 +1060,13 @@ sub _check_state_parameter {
 }
 
 
-sub _store {
+sub _get_store {
   my $self = shift;
 
-  return $self->store_mode eq 'session' ? $self->session
-                                        : $self->stash;
+  my $store_mode = $self->client->config->{store_mode} || 'session';
+
+  return $store_mode eq 'session' ? $self->session
+                                  : $self->stash;
 }
 
 
@@ -1091,7 +1086,7 @@ sub delete_stored_data {
 
   my $provider = $self->client->provider;
 
-  delete $self->_store->{oidc}{provider}{$provider};
+  delete $self->_get_store()->{oidc}{provider}{$provider};
 }
 
 

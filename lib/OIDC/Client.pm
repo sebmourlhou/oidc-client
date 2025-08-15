@@ -72,6 +72,7 @@ L<Catalyst::Plugin::OIDC>
 
 =cut
 
+enum 'StoreMode'    => [qw/session stash/];
 enum 'ResponseMode' => [qw/query form_post/];
 enum 'GrantType'    => [qw/authorization_code client_credentials password refresh_token/];
 enum 'AuthMethod'   => [qw/post basic/];
@@ -1118,6 +1119,7 @@ sub _check_configuration {
   validated_hash(
     \@config,
     provider                         => { isa => 'Str', optional => 1 },
+    store_mode                       => { isa => 'StoreMode', optional => 1 },
     proxy_detect                     => { isa => 'Bool', optional => 1 },
     user_agent                       => { isa => 'Str', optional => 1 },
     id                               => { isa => 'Str', optional => 1 },

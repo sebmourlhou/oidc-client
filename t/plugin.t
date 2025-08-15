@@ -508,7 +508,7 @@ sub test_refresh_token_ok {
     cmp_deeply(get_access_token($obj),
                $expected_stored_access_token,
                'expected stored access token');
-    cmp_deeply([ $obj->client->next_call(4) ],
+    cmp_deeply([ $obj->client->next_call(5) ],
                [ 'get_token', [ $obj->client, grant_type    => 'refresh_token',
                                               refresh_token => 'my_old_refresh_token' ] ],
                'expected call to client->get_token');
@@ -575,7 +575,7 @@ sub test_exchange_token_ok {
     cmp_deeply(get_access_token($obj, 'my_audience'),
                $expected_exchanged_access_token,
                'expected stored access token');
-    cmp_deeply([ $obj->client->next_call(5) ],
+    cmp_deeply([ $obj->client->next_call(6) ],
                [ 'exchange_token', [ $obj->client, token    => 'my_access_token',
                                                    audience => 'my_audience' ] ],
                'expected call to client->exchange_token');
@@ -655,8 +655,8 @@ sub test_verify_token_ok {
 
     # Given
     my $obj = build_object(
+      config          => { store_mode => 'stash' },
       request_headers => { Authorization => 'Bearer ABC2' },
-      store_mode      => 'stash',
     );
 
     # When
@@ -939,7 +939,7 @@ sub test_get_userinfo {
     is($userinfo->{sub}, 'DOEJ',
        'expected subject');
 
-    cmp_deeply([ $obj->client->next_call(4) ],
+    cmp_deeply([ $obj->client->next_call(5) ],
                [ 'get_userinfo', [ $obj->client, access_token => 'my_access_token', token_type => undef ] ],
                'expected call to client->get_userinfo');
   };
@@ -1141,7 +1141,7 @@ sub test_build_api_useragent {
     # Then
     isa_ok($ua, 'Mojo::UserAgent');
 
-    cmp_deeply([ $obj->client->next_call(4) ],
+    cmp_deeply([ $obj->client->next_call(5) ],
                [ 'build_api_useragent', bag($obj->client, token_type => 'my_audience_token_type',
                                                           token      => 'my_audience_access_token') ],
                'expected call to client');
@@ -1166,7 +1166,7 @@ sub test_build_api_useragent {
     # Then
     isa_ok($ua, 'Mojo::UserAgent');
 
-    cmp_deeply([ $obj->client->next_call(17) ],
+    cmp_deeply([ $obj->client->next_call(22) ],
                [ 'build_api_useragent', bag($obj->client, token_type => 'my_exchanged_token_type',
                                                           token      => 'my_exchanged_access_token') ],
                'expected call to client');
@@ -1197,7 +1197,7 @@ sub test_build_api_useragent {
     # Then
     isa_ok($ua, 'Mojo::UserAgent');
 
-    cmp_deeply([ $obj->client->next_call(11) ],
+    cmp_deeply([ $obj->client->next_call(14) ],
                [ 'build_api_useragent', bag($obj->client, token_type => 'my_token_type',
                                                           token      => 'my_access_token') ],
                'expected call to client');
@@ -1230,7 +1230,7 @@ sub test_build_api_useragent {
     # Then
     isa_ok($ua, 'Mojo::UserAgent');
 
-    cmp_deeply([ $obj->client->next_call(16) ],
+    cmp_deeply([ $obj->client->next_call(20) ],
                [ 'build_api_useragent', bag($obj->client, token_type => 'my_exchanged_token_type',
                                                           token      => 'my_exchanged_access_token') ],
                'expected call to client');
@@ -1280,7 +1280,7 @@ sub test_build_api_useragent {
     # Then
     isa_ok($ua, 'Mojo::UserAgent');
 
-    cmp_deeply([ $obj->client->next_call(4) ],
+    cmp_deeply([ $obj->client->next_call(5) ],
                [ 'build_api_useragent', bag($obj->client, token_type => 'my_token_type_for_current_audience',
                                                           token      => 'my_access_token_for_current_audience') ],
                'expected call to client');
@@ -1312,7 +1312,7 @@ sub test_redirect_to_logout_with_id_token {
     is($obj->redirect->(), 'my_logout_url',
        'expected redirect');
 
-    cmp_deeply([ $obj->client->next_call(2) ],
+    cmp_deeply([ $obj->client->next_call(3) ],
                [ 'logout_url', bag($obj->client, id_token                 => 'my_id_token',
                                                  post_logout_redirect_uri => 'my_logout_redirect_uri',
                                                  state                    => 'my_state',
@@ -1977,7 +1977,6 @@ sub build_object {
 
   return $class->new(
     log             => $log,
-    store_mode      => $params{store_mode} || 'session',
     request_params  => $params{request_params} || {},
     request_headers => $params{request_headers} || {},
     session         => {},
@@ -1994,29 +1993,37 @@ sub build_object {
 }
 
 sub store_identity {
-  my ($obj, $identity) = @_;
+  my ($obj, $identity, $store_mode) = @_;
 
-  $obj->session->{oidc}{provider}{my_provider}{identity} = $identity;
+  my $store = get_store($obj, $store_mode);
+  $store->{oidc}{provider}{my_provider}{identity} = $identity;
 }
 
 sub get_identity {
-  my ($obj) = @_;
+  my ($obj, $store_mode) = @_;
 
-  return $obj->session->{oidc}{provider}{my_provider}{identity};
+  my $store = get_store($obj, $store_mode);
+  return $store->{oidc}{provider}{my_provider}{identity};
 }
 
 sub store_access_token {
-  my ($obj, $access_token, $audience) = @_;
+  my ($obj, $access_token, $audience, $store_mode) = @_;
 
-  $obj->session->{oidc}{provider}{my_provider}{access_token}{audience}{$audience || 'my_id'} = $access_token;
+  my $store = get_store($obj, $store_mode);
+  $store->{oidc}{provider}{my_provider}{access_token}{audience}{$audience || 'my_id'} = $access_token;
 }
 
 sub get_access_token {
   my ($obj, $audience, $store_mode) = @_;
+
+  my $store = get_store($obj, $store_mode);
+  return $store->{oidc}{provider}{my_provider}{access_token}{audience}{$audience || 'my_id'};
+}
+
+sub get_store {
+  my ($obj, $store_mode) = @_;
   $store_mode ||= 'session';
 
   my $store = $store_mode eq 'session' ? $obj->session
                                        : $obj->stash;
-
-  return $store->{oidc}{provider}{my_provider}{access_token}{audience}{$audience || 'my_id'};
 }

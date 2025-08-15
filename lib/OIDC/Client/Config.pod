@@ -21,9 +21,22 @@ the configuration entry names.
 Defines the provider name to use by the framework plugin when no one has
 been specified in the call to the C<oidc($provider)> method.
 
-=head2 store_mode
+=head2 authentication_error_path
 
-Defines where the tokens are stored.
+Relative path of the endpoint to which the browser is redirected if an error
+is returned by the provider during the callback to the application after
+an authentication attempt, if an error occurs when the token is retrieved
+in exchange for the code or if an error occurs when verifying the token.
+
+From the redirection endpoint, the error message is present in
+C<error_message> flash data.
+
+If this path is not configured, an L<OIDC::Client::Error::Authentication> error
+is thrown.
+
+=head2 provider."provider".store_mode
+
+Defines where the tokens are stored for this provider.
 
 Possible values (C<session> by default) :
 
@@ -40,19 +53,6 @@ This may be useful for an API which must validate the token
 in the C<Authorization> header for each request (Resource Server).
 
 =back
-
-=head2 authentication_error_path
-
-Relative path of the endpoint to which the browser is redirected if an error
-is returned by the provider during the callback to the application after
-an authentication attempt, if an error occurs when the token is retrieved
-in exchange for the code or if an error occurs when verifying the token.
-
-From the redirection endpoint, the error message is present in
-C<error_message> flash data.
-
-If this path is not configured, an L<OIDC::Client::Error::Authentication> error
-is thrown.
 
 =head2 provider."provider".proxy_detect
 
