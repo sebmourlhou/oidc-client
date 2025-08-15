@@ -304,33 +304,36 @@ endpoint is called.
 =head2 provider."provider".mocked_identity
 
 For local use only, bypasses the authentication flow by directly defining
-a mocked object representing an identity.
+a mocked object representing an L<OIDC::Client::Identity> object.
 
 Example:
 
     <mocked_identity>
-        login       DOEJ
-        lastname    Doe
-        firstname   John
-        email       john.doe@gmail.com
-        roles       MYAPP.ROLE1
-        roles       MYAPP.ROLE2
+        subject     DOEJ
+        token       abcd1234
+        <claims>
+            sub         DOEJ
+            lastName    Doe
+            firstName   John
+            email       john.doe@gmail.com
+            roles       MYAPP.ROLE1
+            roles       MYAPP.ROLE2
+        </claims>
     </mocked_identity>
 
-=head2 provider."provider".mocked_claims
+=head2 provider."provider".mocked_access_token
 
 For local use only, allows the verification of a token to be bypassed by directly
-defining a mocked object representing the claims.
+defining a mocked object representing an L<OIDC::Client::AccessToken> object.
+Also used when retrieving an L<OIDC::Client::AccessToken> object from the store.
 
 Example:
 
-    <mocked_claims>
-        sub         DOEJ
-        exp         123456
-        aud         MYAPP
-        scp         scope1
-        scp         scope2
-    </mocked_claims>
+    <mocked_access_token>
+        token       abcd1234
+        scopes      scope1
+        scopes      scope2
+    </mocked_access_token>
 
 =head2 provider."provider".mocked_userinfo
 

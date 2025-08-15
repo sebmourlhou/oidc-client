@@ -126,7 +126,7 @@ sub test_has_expired {
 }
 
 sub test_to_hashref {
-  subtest "to_hashref()" => sub {
+  subtest "to_hashref() - all attributes" => sub {
 
     my %data = (
       token         => 'my_token',
@@ -134,6 +134,7 @@ sub test_to_hashref {
       token_type    => 'my_token_type',
       expires_at    => 1234,
       scopes        => [qw/scope1 scope2/],
+      claims        => { 'c1' => 'claim1', 'c2' => 'claim2' }
     );
 
     # Given
@@ -144,6 +145,27 @@ sub test_to_hashref {
 
     # Then
     cmp_deeply($access_token_href, \%data,
+               'expected result');
+  };
+
+  subtest "to_hashref() - only attributes having defined values" => sub {
+
+    my %data = (
+      token         => 'my_token',
+      refresh_token => undef,
+    );
+
+    # Given
+    my $access_token = $class->new(%data);
+
+    # When
+    my $access_token_href = $access_token->to_hashref();
+
+    # Then
+    my %expected_result = (
+      token => 'my_token',
+    );
+    cmp_deeply($access_token_href, \%expected_result,
                'expected result');
   };
 }

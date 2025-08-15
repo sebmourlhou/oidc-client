@@ -36,6 +36,12 @@ has 'scopes' => (
   required => 0,
 );
 
+has 'claims' => (
+  is       => 'ro',
+  isa      => 'Maybe[HashRef]',
+  required => 0,
+);
+
 =encoding utf8
 
 =head1 NAME
@@ -50,7 +56,7 @@ Class representing an access token
 
 =head2 token
 
-The string of the access token
+The string of the access token. Required
 
 =head2 refresh_token
 
@@ -68,6 +74,11 @@ The expiration time of the access token (number of seconds since 1970-01-01T00:0
 =head2 scopes
 
 The scopes (arrayref) of the access token
+
+=head2 claims
+
+Hashref of claims coming from the access token. Optional, as an access token
+is not always decoded, depending on the nature of the application.
 
 =head1 METHODS
 
@@ -128,11 +139,9 @@ sub to_hashref {
   my $self = shift;
 
   return {
-    token         => $self->token,
-    refresh_token => $self->refresh_token,
-    token_type    => $self->token_type,
-    expires_at    => $self->expires_at,
-    scopes        => $self->scopes,
+    map { $_ => $self->$_ }
+    grep { defined $self->$_ }
+    map { $_->name } $self->meta->get_all_attributes
   };
 }
 

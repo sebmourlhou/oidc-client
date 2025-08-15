@@ -427,26 +427,27 @@ sub exchange_token {
 
 =head2 verify_token()
 
-  my $claims = $c->oidc->verify_token();
+  my $access_token = $c->oidc->verify_token();
 
 Verifies the JWT access token received in the Authorization header of the current request.
 Throws an exception if an error occurs. Otherwise, stores an L<OIDC::Client::AccessToken> object
 and returns the claims.
 
-To bypass the token verification in local environment, you can configure the C<mocked_claims>
-entry (hashref) to be returned by this method.
+To bypass the token verification in local environment, you can configure the C<mocked_access_token>
+entry (hashref) to be used to create an L<OIDC::Client::AccessToken> object that will be returned
+by this method.
 
 =cut
 
 sub verify_token {
   my $self = shift;
 
-  if ($self->is_base_url_local and my $mocked_claims = $self->client->config->{mocked_claims}) {
-    return $mocked_claims;
+  if ($self->is_base_url_local and my $mocked_access_token = $self->client->config->{mocked_access_token}) {
+    return OIDC::Client::AccessToken->new($mocked_access_token);
   }
 
   my $token = $self->get_token_from_authorization_header()
-    or croak("OIDC: no token in authorization header");
+    or OIDC::Client::Error->throw("OIDC: no token in authorization header");
 
   my $claims = $self->client->verify_token(token => $token);
 
@@ -457,10 +458,11 @@ sub verify_token {
     token      => $token,
     expires_at => $expires_at,
     scopes     => $scopes,
+    claims     => $claims,
   );
   $self->store_access_token($access_token);
 
-  return $claims;
+  return $access_token;
 }
 
 
@@ -940,8 +942,9 @@ Alias configured for the audience of the other application.
 
 =back
 
-In local environment, if the C<mocked_claims> entry (hashref) is configured,
-an L<OIDC::Client::AccessToken> object containing mocked token and scopes is returned.
+In local environment, if the C<mocked_access_token> entry (hashref) is configured,
+it is used to create an L<OIDC::Client::AccessToken> object that will be returned
+by this method.
 
 =cut
 
@@ -952,10 +955,8 @@ sub get_stored_access_token {
   my $audience = $audience_alias ? $self->_get_audience_from_alias($audience_alias)
                                  : $self->client->audience;
 
-  if ($self->is_base_url_local and my $mocked_claims = $self->client->config->{mocked_claims}) {
-    my $scopes = $self->_get_scopes_from_claims($mocked_claims);
-    return OIDC::Client::AccessToken->new(token  => "mocked token for audience '$audience'",
-                                          scopes => $scopes);
+  if ($self->is_base_url_local and my $mocked_access_token = $self->client->config->{mocked_access_token}) {
+    return OIDC::Client::AccessToken->new($mocked_access_token);
   }
 
   my $provider = $self->client->provider;
