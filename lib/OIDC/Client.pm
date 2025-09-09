@@ -161,10 +161,11 @@ has 'provider_metadata' => (
 );
 
 has 'kid_keys' => (
-  is      => 'rw',  # not 'ro' because can be rebuilt when a key has changed
+  is      => 'ro',
   isa     => 'HashRef',
   lazy    => 1,
-  builder => '_get_kid_keys',
+  clearer => '_clear_kid_keys',
+  builder => '_build_kid_keys',
 );
 
 has 'response_parser' => (
@@ -265,6 +266,21 @@ sub _build_provider_metadata {
 }
 
 
+sub _build_kid_keys {
+  my ($self) = @_;
+
+  my $provider = $self->provider;
+  $self->log_msg(info => "OIDC/$provider: fetching JWT kid keys");
+
+  my $jwks_url = $self->provider_metadata->{jwks_url}
+    or croak "OIDC: jwks_url not found in provider metadata";
+
+  my $res = $self->user_agent->get($jwks_url)->result;
+
+  return $self->response_parser->parse($res);
+}
+
+
 =head1 METHODS
 
 =head2 BUILD
@@ -285,7 +301,7 @@ sub BUILD {
   $self->secret;
 
   $self->provider_metadata;
-  $self->kid_keys;
+  $self->kid_keys if $self->provider_metadata->{jwks_url};
 }
 
 
@@ -1064,21 +1080,6 @@ sub _get_provider_metadata {
 }
 
 
-sub _get_kid_keys {
-  my ($self) = @_;
-
-  my $provider = $self->provider;
-  $self->log_msg(info => "OIDC/$provider: fetching JWT kid keys");
-
-  my $jwks_url = $self->provider_metadata->{jwks_url}
-    or croak "OIDC: jwks_url not found in provider metadata";
-
-  my $res = $self->user_agent->get($jwks_url)->result;
-
-  return $self->response_parser->parse($res);
-}
-
-
 =head2 decode_jwt( %args )
 
 Simple pass-through of the Crypt::JWT::decode_jwt() function that can be mocked in tests
@@ -1101,7 +1102,7 @@ sub _decode_token {
     my $e = $_;
     if ($e =~ /kid_keys/i && !$has_already_update_keys) {
       $self->log_msg(info => "OIDC: couldn't decode the token. Let's retry after updating the keys : $e");
-      $self->kid_keys($self->_get_kid_keys());
+      $self->_clear_kid_keys();
       return $self->_decode_token($token, 1);
     }
     else {
