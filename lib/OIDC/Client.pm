@@ -1232,6 +1232,69 @@ To make an API call to another application :
 Here, there is no token exchange because the audience has been configured
 to get the access token intended for the other application.
 
+=head2 API call with token expiration management
+
+If you need to manage token expiration because your script runs longer than
+the token lifetime, here is an example using Moose attributes :
+
+  has 'oidc_client' => (
+    is      => 'ro',
+    isa     => 'OIDC::Client',
+    lazy    => 1,
+    builder => '_build_oidc_client',
+  );
+
+  has 'access_token' => (
+    is      => 'ro',
+    isa     => 'OIDC::Client::AccessToken',
+    lazy    => 1,
+    builder => '_build_access_token',
+    clearer => '_clear_access_token',
+  );
+
+  has 'api_useragent' => (
+    is      => 'ro',
+    isa     => 'Mojo::UserAgent',
+    lazy    => 1,
+    builder => '_build_api_useragent',
+    clearer => '_clear_api_useragent',
+  );
+
+  sub _build_oidc_client {
+    my $self = shift;
+
+    return OIDC::Client->new(
+      log    => $self->log,
+      config => $self->config->{oidc_client},
+    );
+  }
+
+  sub _build_access_token {
+    my $self = shift;
+
+    my $token_response = $self->oidc_client->get_token();
+
+    return build_access_token_from_token_response($token_response);
+  }
+
+  sub _build_api_useragent {
+    my $self = shift;
+
+    return build_api_useragent_from_access_token($self->access_token);
+  }
+
+  sub do_stuff {
+    my $self = shift;
+
+    if ($self->access_token->has_expired($self->oidc_client->config->{expiration_leeway})) {
+      $self->_clear_access_token();
+      $self->_clear_api_useragent();
+    }
+
+    my $res = $self->api_useragent->get($self->config->{api_url})->result;
+    ...
+  }
+
 =head1 AUTHOR
 
 Sébastien Mourlhou
