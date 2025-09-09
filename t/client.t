@@ -933,7 +933,7 @@ sub test_get_token_refresh_token {
   );
   $test->mock_token_response_parser();
 
-  subtest "get_token() password grant type" => sub {
+  subtest "get_token() refresh_token grant type without scope" => sub {
 
     # Given
     my $client = $class->new(
@@ -945,6 +945,7 @@ sub test_get_token_refresh_token {
         provider => 'my_provider',
         id       => 'my_client_id',
         secret   => 'my_client_secret',
+        scope    => 'my_scope',
       },
       provider_metadata => { token_url => 'https://my-provider/token' },
     );
@@ -970,7 +971,47 @@ sub test_get_token_refresh_token {
                'expected call to user agent');
   };
 
-  subtest "get_token() password grant type with basic auth" => sub {
+  subtest "get_token() refresh_token grant type with scope" => sub {
+
+    # Given
+    my $client = $class->new(
+      log                   => $log,
+      user_agent            => $test->mocked_user_agent,
+      token_response_parser => $test->mocked_token_response_parser,
+      kid_keys => {},
+      config => {
+        provider => 'my_provider',
+        id       => 'my_client_id',
+        secret        => 'my_client_secret',
+        scope         => 'my_scope',
+        refresh_scope => 'my_refresh_scope',
+      },
+      provider_metadata => { token_url => 'https://my-provider/token' },
+    );
+
+    # When
+    my $token_response = $client->get_token(
+      grant_type    => 'refresh_token',
+      refresh_token => 'my_refresh_token',
+    );
+
+    # Then
+    is($token_response->access_token, 'my_access_token',
+       'expected access token');
+
+    my %expected_args = (
+      grant_type    => 'refresh_token',
+      client_id     => 'my_client_id',
+      client_secret => 'my_client_secret',
+      refresh_token => 'my_refresh_token',
+      scope         => 'my_refresh_scope',
+    );
+    cmp_deeply([ $test->mocked_user_agent->next_call() ],
+               [ 'post', [ $test->mocked_user_agent, 'https://my-provider/token', {}, 'form', \%expected_args ] ],
+               'expected call to user agent');
+  };
+
+  subtest "get_token() refresh_token grant type with basic auth" => sub {
 
     # Given
     my $client = $class->new(

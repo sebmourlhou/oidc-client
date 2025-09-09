@@ -498,6 +498,13 @@ Not used for the C<authorization_code> nor the C<refresh_token> grant-type.
 Token that can be used to renew the associated access token before it expires.
 Used only for the C<refresh_token> grant-type.
 
+=item refresh_scope
+
+Specifies the desired scope of the requested renewed token.
+Must be a string with space separators.
+Can also be specified in the C<refresh_scope> configuration entry.
+Used only for the C<refresh_token> grant-type.
+
 =back
 
 =cut
@@ -515,6 +522,7 @@ sub get_token {
     audience      => { isa => 'Str', optional => 1 },
     scope         => { isa => 'Str', optional => 1 },
     refresh_token => { isa => 'Str', optional => 1 },
+    refresh_scope => { isa => 'Str', optional => 1 },
   );
 
   my $grant_type = $params{grant_type}
@@ -556,6 +564,10 @@ sub get_token {
   elsif ($grant_type eq 'refresh_token') {
     $args{refresh_token} = $params{refresh_token}
       or croak "OIDC: refresh_token is missing";
+
+    if (my $scope = ($params{refresh_scope} || $self->config->{refresh_scope})) {
+      $args{scope} = $scope;
+    }
   }
 
   unless ($grant_type =~ /^(authorization_code|refresh_token)$/) {
@@ -1137,6 +1149,7 @@ sub _check_configuration {
     signin_redirect_path             => { isa => 'Str', optional => 1 },
     signin_redirect_uri              => { isa => 'Str', optional => 1 },
     scope                            => { isa => 'Str', optional => 1 },
+    refresh_scope                    => { isa => 'Str', optional => 1 },
     identity_expires_in              => { isa => 'Int', optional => 1 },
     expiration_leeway                => { isa => 'Int', optional => 1 },
     decode_jwt_options               => { isa => 'HashRef', optional => 1 },
