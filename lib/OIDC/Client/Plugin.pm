@@ -15,6 +15,7 @@ use Try::Tiny;
 use OIDC::Client::AccessToken;
 use OIDC::Client::AccessTokenBuilder  qw(build_access_token_from_token_response
                                          build_access_token_from_claims);
+use OIDC::Client::ApiUserAgentBuilder qw(build_api_useragent_from_access_token);
 use OIDC::Client::Identity;
 use OIDC::Client::Error;
 use OIDC::Client::Error::Authentication;
@@ -648,10 +649,7 @@ sub build_api_useragent {
 
   my $access_token = $self->get_valid_access_token($audience_alias);
 
-  return $self->client->build_api_useragent(
-    token      => $access_token->token,
-    token_type => $access_token->token_type,
-  );
+  return build_api_useragent_from_access_token($access_token);
 }
 
 

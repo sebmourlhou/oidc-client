@@ -15,6 +15,8 @@ use Crypt::JWT ();
 use Mojo::URL;
 use Mojo::UserAgent;
 use Mojo::Util qw(b64_encode);
+use OIDC::Client::ApiUserAgentBuilder qw(build_api_useragent_from_token_response
+                                         build_api_useragent_from_token_value);
 use OIDC::Client::ResponseParser;
 use OIDC::Client::TokenResponseParser;
 use OIDC::Client::Error::TokenValidation;
@@ -920,27 +922,16 @@ sub build_api_useragent {
     token_type => { isa => 'Maybe[Str]', optional => 1 },
   );
 
-  my ($token, $token_type);
-
-  if ($token = $params{token}) {
-    $token_type = $params{token_type};
-  }
-  else {
-    my $token_response = $self->get_token();
-    $token      = $token_response->access_token;
-    $token_type = $token_response->token_type;
+  if (my $token_value = $params{token}) {
+    warnings::warnif('deprecated',
+                     q{$oidc_client->build_api_useragent(token => $token_value) is deprecated, use } .
+                     q{OIDC::Client::ApiUserAgentBuilder::build_api_useragent_from_token_value($token_value) function instead});
+    my $token_type = $params{token_type};
+    return build_api_useragent_from_token_value($token_value, $token_type);
   }
 
-  $token_type ||= $self->default_token_type;
-
-  my $ua = Mojo::UserAgent->new();
-
-  $ua->on(start => sub {
-    my ($ua, $tx) = @_;
-    $tx->req->headers->authorization("$token_type $token");
-  });
-
-  return $ua;
+  my $token_response = $self->get_token();
+  return build_api_useragent_from_token_response($token_response);
 }
 
 

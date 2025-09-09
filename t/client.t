@@ -7,6 +7,7 @@ use feature 'state';
 use Test::More;
 use Test::Deep;
 use Test::Exception;
+use Test::Warn;
 use Log::Any::Test;
 use Log::Any qw($log);
 use Carp qw(croak);
@@ -1631,16 +1632,16 @@ sub test_build_api_useragent {
     my $token      = 'my_token';
 
     # When
-    my $ua = $client->build_api_useragent(
-      token_type => $token_type,
-      token      => $token,
-    );
+    my $ua;
+    warning_like {
+      $ua = $client->build_api_useragent(
+        token_type => $token_type,
+        token      => $token,
+      );
+    } 'deprecated';
 
     # Then
     isa_ok($ua, 'Mojo::UserAgent');
-    my $tx = $ua->build_tx(GET => 'localhost');
-    $tx = $ua->start($tx);
-    is($tx->req->headers->authorization, 'my_token_type my_token');
   };
 
   subtest "build_api_useragent() without token parameter" => sub {
@@ -1676,9 +1677,6 @@ sub test_build_api_useragent {
 
     # Then
     isa_ok($ua, 'Mojo::UserAgent');
-    my $tx = $ua->build_tx(GET => 'localhost');
-    $tx = $ua->start($tx);
-    is($tx->req->headers->authorization, 'Bearer my_access_token');
   };
 }
 
