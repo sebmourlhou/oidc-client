@@ -25,9 +25,10 @@ has 'expires_at' => (
 );
 
 has 'scopes' => (
-  is       => 'ro',
-  isa      => 'Maybe[ArrayRef[Str]]',
-  required => 0,
+  is        => 'ro',
+  isa       => 'Maybe[ArrayRef[Str]]',
+  required  => 0,
+  predicate => 'has_scopes',
 );
 
 has 'claims' => (
