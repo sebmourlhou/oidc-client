@@ -665,8 +665,15 @@ Optional.
 
 =item expected_nonce
 
-If the C<nonce> claim value is not the expected nonce, an exception is thrown.
+If the C<nonce> claim value is not the expected nonce, an exception is thrown
+unless the JWT token has no C<nonce> claim and the C<no_nonce_accepted> parameter is true.
 Optional.
+
+=item no_nonce_accepted
+
+When the C<expected_nonce> parameter is defined, prevents an exception from being
+thrown if the JWT token does not contain a C<nonce> claim.
+Default to false.
 
 =back
 
@@ -680,6 +687,7 @@ sub verify_token {
     expected_audience => { isa => 'Str', default => $self->audience },
     expected_subject  => { isa => 'Str', optional => 1 },
     expected_nonce    => { isa => 'Str', optional => 1 },
+    no_nonce_accepted => { isa => 'Bool', default => 0 },
   );
 
   # checks the signature, the issuer and the timestamps
@@ -711,11 +719,13 @@ sub verify_token {
 
   # checks the nonce
   if (my $expected_nonce = $params{expected_nonce}) {
-    my $claim_nonce = $claims->{nonce} || '';
-    $claim_nonce eq $expected_nonce
-      or OIDC::Client::Error::TokenValidation->throw(
-        "OIDC: unexpected nonce, expected '$expected_nonce' but got '$claim_nonce'"
-      );
+    unless (!exists $claims->{nonce} && $params{no_nonce_accepted}) {
+      my $claim_nonce = $claims->{nonce} || '';
+      $claim_nonce eq $expected_nonce
+        or OIDC::Client::Error::TokenValidation->throw(
+          "OIDC: unexpected nonce, expected '$expected_nonce' but got '$claim_nonce'"
+        );
+    }
   }
 
   return $claims;

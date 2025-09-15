@@ -488,7 +488,8 @@ sub test_refresh_token_ok {
     cmp_deeply([ $obj->client->next_call(5) ],
                [ 'verify_token', [ $obj->client, token => 'my_id_token',
                                                  expected_audience => 'my_id',
-                                                 expected_nonce    => 'a1370'] ],
+                                                 expected_nonce    => 'a1370',
+                                                 no_nonce_accepted => 1 ] ],
                'expected call to client->verify_token');
   };
 
@@ -583,9 +584,7 @@ sub test_refresh_token_ok {
     my %identity = (
       subject => 'my_subject',
       token   => 'my_old_id_token',
-      claims => {
-        nonce => 'b4632',
-      },
+      claims  => {},
     );
     store_identity($obj, \%identity);
 
@@ -623,8 +622,7 @@ sub test_refresh_token_ok {
                'expected call to client->get_token');
     cmp_deeply([ $obj->client->next_call(5) ],
                [ 'verify_token', [ $obj->client, token => 'my_id_token',
-                                                 expected_audience => 'my_id',
-                                                 expected_nonce    => 'b4632'] ],
+                                                 expected_audience => 'my_id' ] ],
                'expected call to client->verify_token');
   };
 }

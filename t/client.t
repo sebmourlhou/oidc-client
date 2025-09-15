@@ -1207,6 +1207,88 @@ sub test_verify_token {
     } qr/OIDC: unexpected subject, expected 'my_subject' but got 'other_subject'/,
       'exception is thrown';
   };
+
+  subtest "verify_token() 'nonce' is the expected nonce" => sub {
+
+    # Given
+    my %claims = (
+      iss   => 'my_issuer',
+      aud   => 'my_client_id',
+      nonce => 'my_nonce',
+    );
+    $test->mock_decode_jwt(claims => \%claims);
+
+    # When
+    my $token_claims = $client->verify_token(
+      token          => 'my_token',
+      expected_nonce => 'my_nonce',
+    );
+
+    # Then
+    cmp_deeply($token_claims, \%claims,
+               'expected claims');
+  };
+
+  subtest "verify_token() 'nonce' is different from the expected nonce" => sub {
+
+    # Given
+    $test->mock_decode_jwt(
+      claims => {
+        iss   => 'my_issuer',
+        aud   => 'my_client_id',
+        nonce => 'other_nonce',
+      }
+    );
+
+    # When - Then
+    throws_ok {
+      $client->verify_token(
+        token          => 'my_token',
+        expected_nonce => 'my_nonce',
+      );
+    } qr/OIDC: unexpected nonce, expected 'my_nonce' but got 'other_nonce'/,
+      'exception is thrown';
+  };
+
+  subtest "verify_token() no 'nonce' is accepted" => sub {
+
+    # Given
+    my %claims = (
+      iss => 'my_issuer',
+      aud => 'my_client_id',
+    );
+    $test->mock_decode_jwt(claims => \%claims);
+
+    # When
+    my $token_claims = $client->verify_token(
+      token             => 'my_token',
+      expected_nonce    => 'my_nonce',
+      no_nonce_accepted => 1,
+    );
+
+    # Then
+    cmp_deeply($token_claims, \%claims,
+               'expected claims');
+  };
+
+  subtest "verify_token() no 'nonce' is not accepted" => sub {
+
+    # Given
+    my %claims = (
+      iss => 'my_issuer',
+      aud => 'my_client_id',
+    );
+    $test->mock_decode_jwt(claims => \%claims);
+
+    # When - Then
+    throws_ok {
+      $client->verify_token(
+        token          => 'my_token',
+        expected_nonce => 'my_nonce',
+      );
+    } qr/OIDC: unexpected nonce, expected 'my_nonce' but got ''/,
+      'exception is thrown';
+  };
 }
 
 sub test_verify_token_with_standard_decode_exception {
