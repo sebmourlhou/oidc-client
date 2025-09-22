@@ -657,7 +657,7 @@ sub test_exchange_token_with_exceptions {
 }
 
 sub test_exchange_token_ok {
-  subtest "exchange_token() ok" => sub {
+  subtest "exchange_token() ok with access token and refresh token" => sub {
 
     # Given
     my $obj = build_object(
@@ -693,6 +693,43 @@ sub test_exchange_token_ok {
                [ 'exchange_token', [ $obj->client, token    => 'my_access_token',
                                                    audience => 'my_audience' ] ],
                'expected call to client->exchange_token');
+  };
+
+  subtest "exchange_token() ok with access token and without refresh token" => sub {
+
+    # Given
+    my $obj = build_object(
+      config => { audience_alias => { my_audience_alias => {audience => 'my_audience'} } },
+      exchanged_token_response => { access_token  => 'my_exchanged_access_token',
+                                    token_type    => 'my_exchanged_token_type',
+                                    expires_in    => 3600,
+                                    scope         => 'scope2 scope3' },
+    );
+    my %access_token = (
+      token => 'my_access_token',
+    );
+    store_access_token($obj, \%access_token);
+
+    # When
+    my $exchanged_access_token = $obj->exchange_token('my_audience_alias');
+
+    # Then
+    isa_ok($exchanged_access_token, 'OIDC::Client::AccessToken');
+    my $expected_exchanged_access_token = {
+      expires_at => re('^\d+$'),
+      token      => 'my_exchanged_access_token',
+      token_type => 'my_exchanged_token_type',
+      scopes     => [qw/scope2 scope3/],
+    };
+    cmp_deeply($exchanged_access_token,
+               noclass($expected_exchanged_access_token),
+               'expected exchanged access token');
+    cmp_deeply(get_access_token($obj, 'my_audience'),
+               $expected_exchanged_access_token,
+               'expected stored access token');
+    cmp_deeply(get_refresh_token($obj, 'my_audience'),
+               undef,
+               'expected stored refresh token');
   };
 }
 
@@ -1933,7 +1970,7 @@ sub build_object {
     expires_in    => 3600,
     scope         => ' scope ',
   );
-  my %exchanged_token = (
+  my %default_exchanged_token_response = (
     access_token  => 'my_exchanged_access_token',
     refresh_token => 'my_exchanged_refresh_token',
     token_type    => 'my_exchanged_token_type',
@@ -1954,7 +1991,7 @@ sub build_object {
   $mock_client->mock(claim_mapping       => sub { $config{claim_mapping} || \%default_claim_mapping });
   $mock_client->mock(role_prefix         => sub { $config{role_prefix} || ''});
   $mock_client->mock(get_token           => sub { OIDC::Client::TokenResponse->new($params{token_response} || \%default_token_response) });
-  $mock_client->mock(exchange_token      => sub { OIDC::Client::TokenResponse->new(%exchanged_token) });
+  $mock_client->mock(exchange_token      => sub { OIDC::Client::TokenResponse->new($params{exchanged_token_response} || %default_exchanged_token_response) });
   $mock_client->mock(build_api_useragent => sub { Mojo::UserAgent->new(); });
   $mock_client->mock(has_expired         => sub { $params{has_expired} // 0 });
   $mock_client->mock(get_userinfo        => sub { $params{userinfo} || \%default_userinfo });

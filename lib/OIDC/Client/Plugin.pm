@@ -416,7 +416,9 @@ sub exchange_token {
   $self->store_access_token($exchanged_access_token, $audience_alias);
   $self->log_msg(debug => "OIDC: access token has been exchanged and stored");
 
-  $self->store_refresh_token($exchanged_token_response->refresh_token, $audience_alias);
+  if (my $refresh_token = $exchanged_token_response->refresh_token) {
+    $self->store_refresh_token($refresh_token, $audience_alias);
+  }
 
   return $exchanged_access_token;
 }
