@@ -1,5 +1,6 @@
 requires 'perl', '5.20.0';
 requires 'Carp';
+requires 'CHI', '0.60';
 requires 'Crypt::JWT', '0.035';
 requires 'Data::UUID';
 requires 'List::Util';

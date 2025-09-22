@@ -52,6 +52,17 @@ Stored data can only be accessed in the current request.
 This may be useful for an API which must validate the token
 in the C<Authorization> header for each request (Resource Server).
 
+=item cache
+
+The data is stored in a L<CHI|https://metacpan.org/pod/CHI> cache.
+The cache keys correspond to the names of the audiences.
+
+The L</"provider."provider".cache_config"> configuration entry is used
+to instanciate the CHI object.
+
+You can only use the C<cache> store mode with the C<client_credentials>
+or C<password> grant types.
+
 =back
 
 =head2 provider."provider".proxy_detect
@@ -317,6 +328,28 @@ True by default
 
 Defines additional parameters to be sent to the provider when the C<end_session>
 endpoint is called.
+
+=head2 provider."provider".cache_config
+
+Options to be transferred to the L<CHI|https://metacpan.org/pod/CHI#CONSTRUCTOR>
+constructor when using C<cache> store mode.
+
+By default, the transmitted options are :
+
+=over
+
+=item driver: Memory
+
+In-process memory based cache
+
+This is the least intrusive driver, but you should probably use the one
+that best suits your needs.
+
+=item global: 0
+
+No global datastore in memory.
+
+=back
 
 =head2 provider."provider".mocked_identity
 

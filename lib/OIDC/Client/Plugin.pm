@@ -6,12 +6,14 @@ use Moose::Util::TypeConstraints;
 use MooseX::Params::Validate;
 use namespace::autoclean;
 
+use Readonly;
 use Carp qw(croak);
 use Data::UUID;
 use List::Util qw(any);
 use Module::Load qw(load);
 use Mojo::URL;
 use Try::Tiny;
+use CHI;
 use OIDC::Client::AccessToken;
 use OIDC::Client::AccessTokenBuilder  qw(build_access_token_from_token_response
                                          build_access_token_from_claims);
@@ -39,6 +41,8 @@ It contains all the methods available in the application.
 =cut
 
 enum 'RedirectType' => [qw/login logout/];
+
+Readonly my %DEFAULT_CHI_CONFIG => (driver => 'Memory', global => 0);
 
 has 'request_params' => (
   is       => 'ro',
@@ -115,6 +119,13 @@ has 'is_base_url_local' => (
   builder => '_build_is_base_url_local',
 );
 
+has 'audience_cache' => (
+  is      => 'ro',
+  isa     => 'CHI::Driver',
+  lazy    => 1,
+  builder => '_build_audience_cache',
+);
+
 sub _build_is_base_url_local   { return shift->base_url =~ m[^http://localhost\b] }
 sub _build_login_redirect_uri  { return shift->_build_redirect_uri_from_path('login') }
 sub _build_logout_redirect_uri { return shift->_build_redirect_uri_from_path('logout') }
@@ -132,6 +143,15 @@ sub _build_redirect_uri_from_path {
   my $base = Mojo::URL->new($self->base_url);
 
   return Mojo::URL->new($redirect_path)->base($base)->to_abs()->to_string();
+}
+
+sub _build_audience_cache {
+  my $self = shift;
+
+  my $cache_config = $self->client->config->{cache_config} || \%DEFAULT_CHI_CONFIG;
+  my $provider     = $self->client->provider;
+
+  return CHI->new(%$cache_config, namespace => "OIDC-${provider}-Audience");
 }
 
 
@@ -221,8 +241,8 @@ to the state parameter sent with the authorize URL.
 
 From a code received from the provider, executes a request to get the token(s).
 
-Checks the ID token if present and stores the token(s) in the session by default or stash
-depending on your configured C<store_mode> (see L<OIDC::Client::Config>).
+Checks the ID token if present and stores the token(s) in the session, stash
+or cache depending on your configured C<store_mode> (see L<OIDC::Client::Config>).
 
 Returns the stored L<OIDC::Client::Identity> object.
 
@@ -249,24 +269,28 @@ sub get_token {
 
   $self->log_msg(debug => 'OIDC: getting token');
 
-  if ($self->request_params->{error}) {
-    OIDC::Client::Error::Provider->throw({response_parameters => $self->request_params});
+  my ($token_response, $auth_data);
+
+  if ($self->client->token_endpoint_grant_type eq 'authorization_code') {
+    if ($self->request_params->{error}) {
+      OIDC::Client::Error::Provider->throw({response_parameters => $self->request_params});
+    }
+    $auth_data = $self->_extract_auth_data();
+    my $redirect_uri = $params{redirect_uri} || $self->login_redirect_uri;
+    $token_response = $self->client->get_token(
+      code => $self->request_params->{code},
+      $redirect_uri ? (redirect_uri => $redirect_uri) : (),
+    );
   }
-
-  my $auth_data = $self->_extract_auth_data();
-
-  my $redirect_uri = $params{redirect_uri} || $self->login_redirect_uri;
-
-  my $token_response = $self->client->get_token(
-    code => $self->request_params->{code},
-    $redirect_uri ? (redirect_uri => $redirect_uri) : (),
-  );
+  else {
+    $token_response = $self->client->get_token();
+  }
 
   if (my $id_token = $token_response->id_token) {
     my $claims_id_token = $self->client->verify_token(
       token             => $id_token,
       expected_audience => $self->client->id,
-      expected_nonce    => $auth_data->{nonce},
+      $auth_data ? (expected_nonce => $auth_data->{nonce}) : (),
     );
     $self->_store_identity(
       id_token => $id_token,
@@ -787,9 +811,9 @@ sub get_valid_access_token {
     if ($audience_alias) {
       return $self->exchange_token($audience_alias);
     }
-    else {
-      OIDC::Client::Error->throw("OIDC: no access token has been stored");
-    }
+    $self->get_token();
+    return $self->get_stored_access_token()
+      || OIDC::Client::Error->throw("OIDC: access token has not been retrieved from token endpoint");
   }
 
   my $audience = $audience_alias ? $self->_get_audience_from_alias($audience_alias)
@@ -800,25 +824,32 @@ sub get_valid_access_token {
     return $stored_access_token;
   }
 
-  if ($stored_access_token->has_expired($self->client->config->{expiration_leeway})) {
-    $self->log_msg(debug => "OIDC: access token has expired for audience '$audience'");
-    return try {
+  unless ($stored_access_token->has_expired($self->client->config->{expiration_leeway})) {
+    $self->log_msg(debug => "OIDC: access token for audience '$audience' has been retrieved from store");
+    return $stored_access_token;
+  }
+
+  $self->log_msg(debug => "OIDC: access token has expired for audience '$audience'");
+
+  if ($self->get_stored_refresh_token($audience_alias)) {
+    my $renewed_access_token = try {
       $self->refresh_token($audience_alias)
         or OIDC::Client::Error->throw("OIDC: access token has not been refreshed");
     }
     catch {
       $self->log_msg(debug => "OIDC: error refreshing access token for audience '$audience' : $_");
-      if ($audience_alias) {
-        $self->exchange_token($audience_alias);
-      }
-      else {
-        die $_;
-      }
+      return;
     };
+    return $renewed_access_token if $renewed_access_token;
+  }
+
+  if ($audience_alias) {
+    return $self->exchange_token($audience_alias);
   }
   else {
-    $self->log_msg(debug => "OIDC: access token for audience '$audience' has been retrieved from store");
-    return $stored_access_token;
+    $self->get_token();
+    return $self->get_stored_access_token()
+      || OIDC::Client::Error->throw("OIDC: access token has not been retrieved from token endpoint");
   }
 }
 
@@ -874,7 +905,7 @@ sub get_stored_identity {
   }
 
   my $audience = $self->client->id;
-  my $identity = $self->_get_audience_store($audience)->{identity}
+  my $identity = $self->_get_audience_store($audience, 'identity')
     or return;
 
   return OIDC::Client::Identity->new($identity);
@@ -913,7 +944,7 @@ sub _store_identity {
   my $audience = $self->client->id;
 
   # not stored as Identity object because we can't rely on the session engine to preserve its type
-  $self->_get_audience_store($audience)->{identity} = \%identity;
+  $self->_set_audience_store($audience, 'identity', \%identity);
 }
 
 
@@ -951,7 +982,7 @@ sub get_stored_access_token {
     return OIDC::Client::AccessToken->new($mocked_access_token);
   }
 
-  my $access_token = $self->_get_audience_store($audience)->{access_token}
+  my $access_token = $self->_get_audience_store($audience, 'access_token')
     or return;
 
   return OIDC::Client::AccessToken->new($access_token);
@@ -962,8 +993,8 @@ sub get_stored_access_token {
 
   $c->oidc->store_access_token($access_token);
 
-Stores an L<OIDC::Client::AccessToken> object in the session or stash depending
-on your configured C<store_mode> (see L<OIDC::Client::Config>).
+Stores an L<OIDC::Client::AccessToken> object in the session, stash or cache
+depending on your configured C<store_mode> (see L<OIDC::Client::Config>).
 
 =cut
 
@@ -976,7 +1007,7 @@ sub store_access_token {
                                  : $self->client->audience;
 
   # stored as a hashref because we can't rely on the session engine to preserve the object type
-  $self->_get_audience_store($audience)->{access_token} = $access_token->to_hashref;
+  $self->_set_audience_store($audience, 'access_token', $access_token->to_hashref);
 }
 
 
@@ -1005,7 +1036,7 @@ sub get_stored_refresh_token {
   my $audience = $audience_alias ? $self->_get_audience_from_alias($audience_alias)
                                  : $self->client->audience;
 
-  return $self->_get_audience_store($audience)->{refresh_token};
+  return $self->_get_audience_store($audience, 'refresh_token');
 }
 
 
@@ -1013,7 +1044,7 @@ sub get_stored_refresh_token {
 
   $c->oidc->store_refresh_token($refresh_token);
 
-Stores the refresh token (string) in the session or stash depending
+Stores the refresh token value in the session, stash or cache depending
 on your configured C<store_mode> (see L<OIDC::Client::Config>).
 
 =cut
@@ -1026,7 +1057,7 @@ sub store_refresh_token {
   my $audience = $audience_alias ? $self->_get_audience_from_alias($audience_alias)
                                  : $self->client->audience;
 
-  $self->_get_audience_store($audience)->{refresh_token} = $refresh_token;
+  $self->_set_audience_store($audience, 'refresh_token', $refresh_token);
 }
 
 
@@ -1068,22 +1099,31 @@ sub _extract_auth_data {
 
 
 sub _get_audience_store {
-  my $self = shift;
-  my ($audience) = pos_validated_list(\@_, { isa => 'Str', optional => 0 });
+  my ($self, $audience, $key) = @_;
 
-  my $provider = $self->client->provider;
+  my $audience_store;
+  if ($self->client->store_mode eq 'cache') {
+    $audience_store = $self->audience_cache->get($audience) || {};
+  }
+  else {
+    my $provider = $self->client->provider;
+    my $store = $self->client->store_mode eq 'session' ? $self->session : $self->stash;
+    $audience_store = $store->{oidc}{provider}{$provider}{audience}{$audience} ||= {};
+  }
 
-  return $self->_get_store()->{oidc}{provider}{$provider}{audience}{$audience} ||= {};
+  return $key ? $audience_store->{$key} : $audience_store;
 }
 
 
-sub _get_store {
-  my $self = shift;
+sub _set_audience_store {
+  my ($self, $audience, $key, $value) = @_;
 
-  my $store_mode = $self->client->config->{store_mode} || 'session';
+  my $audience_store = $self->_get_audience_store($audience);
+  $audience_store->{$key} = $value;
 
-  return $store_mode eq 'session' ? $self->session
-                                  : $self->stash;
+  if ($self->client->store_mode eq 'cache') {
+    $self->audience_cache->set($audience, $audience_store);
+  }
 }
 
 
@@ -1091,8 +1131,8 @@ sub _get_store {
 
   $c->oidc->delete_stored_data();
 
-Delete the tokens and other data stored in the session or stash depending
-on your configured C<store_mode> (see L<OIDC::Client::Config>).
+Delete the tokens and other data stored in the session, stash or cache
+depending on your configured C<store_mode> (see L<OIDC::Client::Config>).
 
 Note that only the data from the current provider is deleted.
 
@@ -1101,9 +1141,14 @@ Note that only the data from the current provider is deleted.
 sub delete_stored_data {
   my $self = shift;
 
-  my $provider = $self->client->provider;
-
-  delete $self->_get_store()->{oidc}{provider}{$provider};
+  if ($self->client->store_mode eq 'cache') {
+    $self->audience_cache->clear();
+  }
+  else {
+    my $provider = $self->client->provider;
+    my $store = $self->client->store_mode eq 'session' ? $self->session : $self->stash;
+    delete $store->{oidc}{provider}{$provider};
+  }
 }
 
 

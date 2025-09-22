@@ -146,8 +146,8 @@ sub test_redirect_to_authorize_with_minimum_parameters {
   };
 }
 
-sub test_get_token_with_provider_error {
-  subtest "get_token() with provider error" => sub {
+sub test_get_token_KO {
+  subtest "get_token() - 'authorization_code' grant type with provider error" => sub {
 
     # Given
     my $obj = build_object(request_params => {error => 'error from provider'});
@@ -158,10 +158,8 @@ sub test_get_token_with_provider_error {
       'expected exception';
     isa_ok($@, 'OIDC::Client::Error::Provider');
   };
-}
 
-sub test_get_token_with_invalid_state_parameter {
-  subtest "get_token() without state parameter" => sub {
+  subtest "get_token() - 'authorization_code' grant type without state parameter" => sub {
 
     # Given
     my $obj = build_object(request_params => {});
@@ -173,7 +171,7 @@ sub test_get_token_with_invalid_state_parameter {
     isa_ok($@, 'OIDC::Client::Error::Authentication');
   };
 
-  subtest "get_token() without authorisation data in session" => sub {
+  subtest "get_token() - 'authorization_code' grant type without authorisation data in session" => sub {
 
     # Given
     my $obj = build_object(request_params => {state => 'aaa'});
@@ -187,7 +185,7 @@ sub test_get_token_with_invalid_state_parameter {
 }
 
 sub test_get_token_ok {
-  subtest "get_token() with all tokens" => sub {
+  subtest "get_token() - 'authorization_code' grant type with all tokens" => sub {
 
     # Given
     my $obj = build_object(request_params => {code  => 'my_code',
@@ -237,7 +235,7 @@ sub test_get_token_ok {
     cmp_deeply(get_refresh_token($obj),
                'my_refresh_token',
                'expected stored refresh token');
-    cmp_deeply([ $obj->client->next_call() ],
+    cmp_deeply([ $obj->client->next_call(2) ],
                [ 'get_token', [ $obj->client, code         => 'my_code',
                                               redirect_uri => 'my_redirect_uri' ] ],
                'expected call to client->get_token');
@@ -252,7 +250,7 @@ sub test_get_token_ok {
        'auth_data has been deleted');
   };
 
-  subtest "get_token() with only ID token" => sub {
+  subtest "get_token() 'authorization_code' grant type with only ID token" => sub {
 
     # Given
     my $obj = build_object(request_params => {code     => 'my_code',
@@ -290,7 +288,7 @@ sub test_get_token_ok {
                'no stored access token');
   };
 
-  subtest "get_token() - identity expires in configured number of seconds" => sub {
+  subtest "get_token() - 'authorization_code' grant type - identity expires in configured number of seconds" => sub {
 
     # Given
     my $expires_in = 3600;
@@ -312,7 +310,7 @@ sub test_get_token_ok {
                'expected expires_at');
   };
 
-  subtest "get_token() - no identity expiration" => sub {
+  subtest "get_token() - 'authorization_code' grant type - no identity expiration" => sub {
 
     # Given
     my $obj = build_object(request_params => {code                => 'my_code',
@@ -331,7 +329,7 @@ sub test_get_token_ok {
        'no expires_at');
   };
 
-  subtest "get_token() with only access token" => sub {
+  subtest "get_token() - 'authorization_code' grant type with only access token" => sub {
 
     # Given
     my $obj = build_object(request_params => {code         => 'my_code',
@@ -362,7 +360,7 @@ sub test_get_token_ok {
                'no stored refresh token');
   };
 
-  subtest "get_token() with access token and refresh token" => sub {
+  subtest "get_token() - 'authorization_code' grant type with access token and refresh token" => sub {
 
     # Given
     my $obj = build_object(request_params => {code          => 'my_code',
@@ -393,6 +391,84 @@ sub test_get_token_ok {
     cmp_deeply(get_refresh_token($obj),
                'my_refresh_token',
                'expected stored refresh token');
+  };
+
+  subtest "get_token() - 'client_credentials' grant type with access token and refresh token" => sub {
+
+    # Given
+    my $obj = build_object(config         => {token_endpoint_grant_type => 'client_credentials'},
+                           token_response => {access_token  => 'my_access_token',
+                                              refresh_token => 'my_refresh_token'});
+
+    # When
+    my $identity = $obj->get_token();
+
+    # Then
+    cmp_deeply($identity,
+               undef,
+               'no returned identity');
+    cmp_deeply(get_identity($obj),
+               undef,
+               'no stored identity');
+    my $expected_stored_access_token = {
+      token => 'my_access_token',
+    };
+    cmp_deeply(get_access_token($obj),
+               $expected_stored_access_token,
+               'expected stored access token'
+             );
+    cmp_deeply(get_refresh_token($obj),
+               'my_refresh_token',
+               'expected stored refresh token');
+  };
+
+  subtest "get_token() - 'client_credentials' grant type with only access token" => sub {
+
+    # Given
+    my $obj = build_object(config         => {token_endpoint_grant_type => 'client_credentials'},
+                           token_response => {access_token => 'my_access_token'});
+
+    # When
+    my $identity = $obj->get_token();
+
+    # Then
+    cmp_deeply($identity,
+               undef,
+               'no returned identity');
+    cmp_deeply(get_identity($obj),
+               undef,
+               'no stored identity');
+    my $expected_stored_access_token = {
+      token => 'my_access_token',
+    };
+    cmp_deeply(get_access_token($obj),
+               $expected_stored_access_token,
+               'expected stored access token');
+    cmp_deeply(get_refresh_token($obj),
+               undef,
+               'no stored refresh token');
+  };
+
+  subtest "get_token() - 'client_credentials' grant type - access token stored in cache" => sub {
+
+    # Given
+    my $obj = build_object(config         => {token_endpoint_grant_type => 'client_credentials',
+                                              store_mode                => 'cache'},
+                           token_response => {access_token => 'my_access_token'});
+
+    # When
+    $obj->get_token();
+
+    # Then
+    my $expected_stored_access_token = {
+      token => 'my_access_token',
+    };
+    cmp_deeply(get_access_token($obj, undef, 'cache'),
+               $expected_stored_access_token,
+               'expected stored access token');
+    cmp_deeply(get_access_token($obj),
+               undef,
+               'no access token in session');
   };
 }
 
@@ -481,11 +557,11 @@ sub test_refresh_token_ok {
     cmp_deeply(get_refresh_token($obj),
                'my_refresh_token',
                'expected stored refresh token');
-    cmp_deeply([ $obj->client->next_call(6) ],
+    cmp_deeply([ $obj->client->next_call(7) ],
                [ 'get_token', [ $obj->client, grant_type    => 'refresh_token',
                                               refresh_token => 'my_old_refresh_token' ] ],
                'expected call to client->get_token');
-    cmp_deeply([ $obj->client->next_call(5) ],
+    cmp_deeply([ $obj->client->next_call(6) ],
                [ 'verify_token', [ $obj->client, token             => 'my_id_token',
                                                  expected_subject  => 'my_subject',
                                                  expected_audience => 'my_id',
@@ -529,7 +605,7 @@ sub test_refresh_token_ok {
     cmp_deeply(get_identity($obj),
                undef,
                'no stored identity');
-    cmp_deeply([ $obj->client->next_call(6) ],
+    cmp_deeply([ $obj->client->next_call(7) ],
                [ 'get_token', [ $obj->client, grant_type    => 'refresh_token',
                                               refresh_token => 'my_old_refresh_token',
                                               refresh_scope => 'custom scope' ] ],
@@ -570,7 +646,7 @@ sub test_refresh_token_ok {
     cmp_deeply(get_identity($obj),
                undef,
                'no stored identity');
-    cmp_deeply([ $obj->client->next_call(5) ],
+    cmp_deeply([ $obj->client->next_call(6) ],
                [ 'get_token', [ $obj->client, grant_type    => 'refresh_token',
                                               refresh_token => 'my_old_audience_refresh_token' ] ],
                'expected call to client->get_token');
@@ -617,11 +693,11 @@ sub test_refresh_token_ok {
     cmp_deeply(get_access_token($obj),
                undef,
                'no stored access token');
-    cmp_deeply([ $obj->client->next_call(6) ],
+    cmp_deeply([ $obj->client->next_call(7) ],
                [ 'get_token', [ $obj->client, grant_type    => 'refresh_token',
                                               refresh_token => 'my_old_refresh_token' ] ],
                'expected call to client->get_token');
-    cmp_deeply([ $obj->client->next_call(5) ],
+    cmp_deeply([ $obj->client->next_call(6) ],
                [ 'verify_token', [ $obj->client, token             => 'my_id_token',
                                                  expected_subject  => 'my_subject',
                                                  expected_audience => 'my_id' ] ],
@@ -650,7 +726,7 @@ sub test_exchange_token_with_exceptions {
 
     # When - Then
     throws_ok { $obj->exchange_token('my_audience_alias') }
-      qr/no access token has been stored/,
+      qr/no state parameter in request/,
       'expected exception';
     isa_ok($@, 'OIDC::Client::Error');
   };
@@ -689,7 +765,7 @@ sub test_exchange_token_ok {
     cmp_deeply(get_refresh_token($obj, 'my_audience'),
                'my_exchanged_refresh_token',
                'expected stored refresh token');
-    cmp_deeply([ $obj->client->next_call(6) ],
+    cmp_deeply([ $obj->client->next_call(7) ],
                [ 'exchange_token', [ $obj->client, token    => 'my_access_token',
                                                    audience => 'my_audience' ] ],
                'expected call to client->exchange_token');
@@ -968,7 +1044,7 @@ sub test_get_userinfo {
     is($userinfo->{sub}, 'DOEJ',
        'expected subject');
 
-    cmp_deeply([ $obj->client->next_call(5) ],
+    cmp_deeply([ $obj->client->next_call(6) ],
                [ 'get_userinfo', [ $obj->client, access_token => 'my_access_token', token_type => undef ] ],
                'expected call to client->get_userinfo');
   };
@@ -1213,60 +1289,6 @@ sub test_build_api_useragent {
     isa_ok($ua, 'Mojo::UserAgent');
   };
 
-  subtest "build_api_useragent() with error while refreshing access token for audience" => sub {
-    $log->clear();
-
-    # Given
-    my $obj = build_object(
-      config => { audience_alias => { my_audience_alias => {audience => 'my_audience'} } }
-    );
-    my %audience_access_token = (
-      token      => 'my_audience_access_token',
-      token_type => 'my_audience_token_type',
-      expires_at => 11,
-    );
-    store_access_token($obj, \%audience_access_token, 'my_audience');
-    store_refresh_token($obj, 'my_audience_refresh_token', 'my_audience');
-    my %access_token = (
-      token         => 'my_access_token',
-      refresh_token => 'my_refresh_token',
-    );
-    store_access_token($obj, \%access_token);
-    $obj->client->mock('get_token', sub { die 'to have an error while refreshing token' });
-
-    # When
-    my $ua = $obj->build_api_useragent('my_audience_alias');
-
-    # Then
-    isa_ok($ua, 'Mojo::UserAgent');
-
-    cmp_deeply($log->msgs->[2],
-               superhashof({
-                 message => re(q{OIDC: error refreshing access token for audience 'my_audience'}),
-               }),
-               'expected log');
-  };
-
-  subtest "build_api_useragent() without valid access token for audience and cannot exchange token" => sub {
-
-    # Given
-    my $obj = build_object(
-      config => { audience_alias => { my_audience_alias => {audience => 'my_audience'} } },
-    );
-    my %access_token = (
-      token      => 'my_access_token',
-      expires_at => 11,
-    );
-    store_access_token($obj, \%access_token);
-    store_refresh_token($obj, 'my_refresh_token');
-    $obj->client->mock(exchange_token => sub { die 'to have an error while exchanging token' });
-
-    # When - Then
-    throws_ok { $obj->build_api_useragent('my_audience_alias') }
-      qr/error while exchanging token/,
-      'expected exception';
-  };
-
   subtest "build_api_useragent() for current audience" => sub {
 
     # Given
@@ -1315,7 +1337,7 @@ sub test_redirect_to_logout_with_id_token {
     is($obj->redirect->(), 'my_logout_url',
        'expected redirect');
 
-    cmp_deeply([ $obj->client->next_call(4) ],
+    cmp_deeply([ $obj->client->next_call(5) ],
                [ 'logout_url', bag($obj->client, id_token                 => 'my_id_token',
                                                  post_logout_redirect_uri => 'my_logout_redirect_uri',
                                                  state                    => $state,
@@ -1355,7 +1377,7 @@ sub test_redirect_to_logout_without_id_token {
   };
 }
 
-sub test_get_valid_access_token_with_exceptions {
+sub test_get_valid_access_token_KO {
   subtest "get_valid_access_token() without configured audience alias" => sub {
 
     # Given
@@ -1367,7 +1389,7 @@ sub test_get_valid_access_token_with_exceptions {
       'expected exception';
   };
 
-  subtest "get_valid_access_token() with expired access token and no refresh token" => sub {
+  subtest "get_valid_access_token() - 'authorization_code' grant type with expired access token and no refresh token" => sub {
 
     # Given
     my $obj = build_object();
@@ -1379,7 +1401,20 @@ sub test_get_valid_access_token_with_exceptions {
 
     # When - Then
     throws_ok { $obj->get_valid_access_token() }
-      qr/no refresh token has been stored/,
+      qr/no state parameter in request/,
+      'expected exception';
+    isa_ok($@, 'OIDC::Client::Error');
+  };
+
+  subtest "get_valid_access_token() - 'client_credentials' grant type - no access token from token endpoint" => sub {
+
+    # Given
+    my $obj = build_object(config         => {token_endpoint_grant_type => 'client_credentials'},
+                           token_response => {id_token => 'my_id_token'});
+
+    # When - Then
+    throws_ok { $obj->get_valid_access_token() }
+      qr/access token has not been retrieved from token endpoint/,
       'expected exception';
     isa_ok($@, 'OIDC::Client::Error');
   };
@@ -1409,9 +1444,29 @@ sub test_get_valid_access_token_with_exceptions {
     is($access_token->token, 'my_exchanged_access_token',
        'token is exchanged');
   };
+
+  subtest "get_valid_access_token() without valid access token for audience and cannot exchange token" => sub {
+
+    # Given
+    my $obj = build_object(
+      config => { audience_alias => { my_audience_alias => {audience => 'my_audience'} } },
+    );
+    my %access_token = (
+      token      => 'my_access_token',
+      expires_at => 11,
+    );
+    store_access_token($obj, \%access_token);
+    store_refresh_token($obj, 'my_refresh_token');
+    $obj->client->mock(exchange_token => sub { die 'to have an error while exchanging token' });
+
+    # When - Then
+    throws_ok { $obj->get_valid_access_token('my_audience_alias') }
+      qr/error while exchanging token/,
+      'expected exception';
+  };
 }
 
-sub test_get_valid_access_token {
+sub test_get_valid_access_token_ok {
 
   subtest "get_valid_access_token() with expired access token" => sub {
 
@@ -1468,9 +1523,42 @@ sub test_get_valid_access_token {
     is($access_token->token, 'my_stored_token',
        'expected token');
   };
+
+  subtest "get_valid_access_token() - 'client_credentials' grant type without stored access token" => sub {
+
+    # Given
+    my $obj = build_object(config         => {token_endpoint_grant_type => 'client_credentials'},
+                           token_response => {access_token => 'my_access_token'});
+
+    # When
+    my $access_token = $obj->get_valid_access_token();
+
+    # Then
+    is($access_token->token, 'my_access_token',
+       'expected token');
+  };
+
+  subtest "get_valid_access_token() - 'client_credentials' grant type with expired access token and no refresh token" => sub {
+
+    # Given
+    my $obj = build_object(config         => {token_endpoint_grant_type => 'client_credentials'},
+                           token_response => {access_token => 'my_access_token'});
+    my %access_token = (
+      token      => 'my_expired_access_token',
+      expires_at => 1234,
+    );
+    store_access_token($obj, \%access_token);
+
+    # When - Then
+    my $access_token = $obj->get_valid_access_token();
+
+    # Then
+    is($access_token->token, 'my_access_token',
+       'expected token');
+  };
 }
 
-sub test_get_valid_access_token_for_audience {
+sub test_get_valid_access_token_ok_for_audience {
   subtest "get_valid_access_token() with expired exchanged token when including leeway" => sub {
 
     # Given
@@ -1531,6 +1619,41 @@ sub test_get_valid_access_token_for_audience {
     # Then
     is($exchanged_token->token, 'my_exchanged_access_token',
        'expected token');
+  };
+
+  subtest "get_valid_access_token() with error while refreshing access token for audience" => sub {
+    $log->clear();
+
+    # Given
+    my $obj = build_object(
+      config => { audience_alias => { my_audience_alias => {audience => 'my_audience'} } }
+    );
+    my %audience_access_token = (
+      token      => 'my_audience_access_token',
+      token_type => 'my_audience_token_type',
+      expires_at => 11,
+    );
+    store_access_token($obj, \%audience_access_token, 'my_audience');
+    store_refresh_token($obj, 'my_audience_refresh_token', 'my_audience');
+    my %access_token = (
+      token         => 'my_access_token',
+      refresh_token => 'my_refresh_token',
+    );
+    store_access_token($obj, \%access_token);
+    $obj->client->mock('get_token', sub { die 'to have an error while refreshing token' });
+
+    # When
+    my $access_token = $obj->get_valid_access_token('my_audience_alias');
+
+    # Then
+    is($access_token->token, 'my_exchanged_access_token',
+       'token is exchanged');
+
+    cmp_deeply($log->msgs->[2],
+               superhashof({
+                 message => re(q{OIDC: error refreshing access token for audience 'my_audience'}),
+               }),
+               'expected log');
   };
 
   subtest "get_valid_access_token() with mocked token" => sub {
@@ -1915,7 +2038,7 @@ sub test_store_refresh_token {
 }
 
 sub test_delete_stored_data {
-  subtest "delete_stored_data()" => sub {
+  subtest "delete_stored_data() - data in session" => sub {
 
     # Given
     my $obj = build_object();
@@ -1940,6 +2063,26 @@ sub test_delete_stored_data {
        undef,
        'identity has been deleted');
     is(get_access_token($obj),
+       undef,
+       'access token has been deleted');
+  };
+
+  subtest "delete_stored_data() - data in cache" => sub {
+
+    # Given
+    my $obj = build_object(config => {token_endpoint_grant_type => 'client_credentials',
+                                      store_mode                => 'cache'});
+    my %access_token = (
+      token      => 'my_access_token',
+      expires_at => 11,
+    );
+    store_access_token($obj, \%access_token, 'cache');
+
+    # When
+    $obj->delete_stored_data();
+
+    # Then
+    is(get_access_token($obj, undef, 'cache'),
        undef,
        'access token has been deleted');
   };
@@ -1996,6 +2139,8 @@ sub build_object {
   $mock_client->mock(has_expired         => sub { $params{has_expired} // 0 });
   $mock_client->mock(get_userinfo        => sub { $params{userinfo} || \%default_userinfo });
   $mock_client->mock(default_token_type  => sub { 'Bearer' });
+  $mock_client->mock(token_endpoint_grant_type => sub { $config{token_endpoint_grant_type} || 'authorization_code' });
+  $mock_client->mock(store_mode          => sub { $config{store_mode} || 'session' });
   $mock_client->mock(get_claim_value => sub {
     my ($self, %params) = @_;
     return $params{claims}->{$self->claim_mapping->{$params{name}}};
@@ -2024,44 +2169,89 @@ sub build_object {
 
 sub store_identity {
   my ($obj, $identity, $store_mode) = @_;
+  $store_mode ||= 'session';
 
-  my $store = get_store($obj, $store_mode);
-  $store->{oidc}{provider}{my_provider}{audience}{my_id}{identity} = $identity;
+  if ($store_mode eq 'cache') {
+    my $audience_store = $obj->audience_cache->get('my_id') || {};
+    $audience_store->{identity} = $identity;
+    $obj->audience_cache->set('my_id', $audience_store);
+  }
+  else {
+    my $store = get_store($obj, $store_mode);
+    $store->{oidc}{provider}{my_provider}{audience}{my_id}{identity} = $identity;
+  }
 }
 
 sub get_identity {
   my ($obj, $store_mode) = @_;
+  $store_mode ||= 'session';
 
-  my $store = get_store($obj, $store_mode);
-  return $store->{oidc}{provider}{my_provider}{audience}{my_id}{identity};
+  if ($store_mode eq 'cache') {
+    my $audience_store = $obj->audience_cache->get('my_id') || {};
+    return $audience_store->{identity};
+  }
+  else {
+    my $store = get_store($obj, $store_mode);
+    return $store->{oidc}{provider}{my_provider}{audience}{my_id}{identity};
+  }
 }
 
 sub store_access_token {
   my ($obj, $access_token, $audience, $store_mode) = @_;
+  $store_mode ||= 'session';
 
-  my $store = get_store($obj, $store_mode);
-  $store->{oidc}{provider}{my_provider}{audience}{$audience || 'my_id'}{access_token} = $access_token;
+  if ($store_mode eq 'cache') {
+    my $audience_store = $obj->audience_cache->get($audience || 'my_id') || {};
+    $audience_store->{access_token} = $access_token;
+    $obj->audience_cache->set($audience, $audience_store);
+  }
+  else {
+    my $store = get_store($obj, $store_mode);
+    $store->{oidc}{provider}{my_provider}{audience}{$audience || 'my_id'}{access_token} = $access_token;
+  }
 }
 
 sub get_access_token {
   my ($obj, $audience, $store_mode) = @_;
+  $store_mode ||= 'session';
 
-  my $store = get_store($obj, $store_mode);
-  return $store->{oidc}{provider}{my_provider}{audience}{$audience || 'my_id'}{access_token};
+  if ($store_mode eq 'cache') {
+    my $audience_store = $obj->audience_cache->get($audience || 'my_id') || {};
+    return $audience_store->{access_token};
+  }
+  else {
+    my $store = get_store($obj, $store_mode);
+    return $store->{oidc}{provider}{my_provider}{audience}{$audience || 'my_id'}{access_token};
+  }
 }
 
 sub store_refresh_token {
   my ($obj, $refresh_token, $audience, $store_mode) = @_;
+  $store_mode ||= 'session';
 
-  my $store = get_store($obj, $store_mode);
-  $store->{oidc}{provider}{my_provider}{audience}{$audience || 'my_id'}{refresh_token} = $refresh_token;
+  if ($store_mode eq 'cache') {
+    my $audience_store = $obj->audience_cache->get($audience || 'my_id') || {};
+    $audience_store->{refresh_token} = $refresh_token;
+    $obj->audience_cache->set($audience, $audience_store);
+  }
+  else {
+    my $store = get_store($obj, $store_mode);
+    $store->{oidc}{provider}{my_provider}{audience}{$audience || 'my_id'}{refresh_token} = $refresh_token;
+  }
 }
 
 sub get_refresh_token {
   my ($obj, $audience, $store_mode) = @_;
+  $store_mode ||= 'session';
 
-  my $store = get_store($obj, $store_mode);
-  return $store->{oidc}{provider}{my_provider}{audience}{$audience || 'my_id'}{refresh_token};
+  if ($store_mode eq 'cache') {
+    my $audience_store = $obj->audience_cache->get($audience || 'my_id') || {};
+    return $audience_store->{refresh_token};
+  }
+  else {
+    my $store = get_store($obj, $store_mode);
+    return $store->{oidc}{provider}{my_provider}{audience}{$audience || 'my_id'}{refresh_token};
+  }
 }
 
 sub get_store {

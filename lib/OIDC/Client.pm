@@ -74,7 +74,7 @@ L<Catalyst::Plugin::OIDC>
 
 =cut
 
-enum 'StoreMode'    => [qw/session stash/];
+enum 'StoreMode'    => [qw/session stash cache/];
 enum 'ResponseMode' => [qw/query form_post/];
 enum 'GrantType'    => [qw/authorization_code client_credentials password refresh_token/];
 enum 'AuthMethod'   => [qw/post basic/];
@@ -88,6 +88,7 @@ Readonly my %DEFAULT_DECODE_JWT_OPTIONS => (
 Readonly my $DEFAULT_TOKEN_ENDPOINT_GRANT_TYPE  => 'authorization_code';
 Readonly my $DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD => 'post';
 Readonly my $DEFAULT_TOKEN_TYPE                 => 'Bearer';
+Readonly my $DEFAULT_STORE_MODE                 => 'session';
 
 has 'config' => (
   is      => 'ro',
@@ -151,6 +152,13 @@ has 'role_prefix' => (
   default => sub { shift->config->{role_prefix} },
 );
 
+has 'token_endpoint_grant_type' => (
+  is      => 'ro',
+  isa     => 'GrantType',
+  lazy    => 1,
+  default => sub { shift->config->{token_endpoint_grant_type} || $DEFAULT_TOKEN_ENDPOINT_GRANT_TYPE },
+);
+
 has 'default_token_type' => (
   is      => 'ro',
   isa     => 'Str',
@@ -162,6 +170,13 @@ has 'provider_metadata' => (
   isa     => 'HashRef',
   lazy    => 1,
   builder => '_build_provider_metadata',
+);
+
+has 'store_mode' => (
+  is      => 'ro',
+  isa     => 'StoreMode',
+  lazy    => 1,
+  default => sub { shift->config->{store_mode} || $DEFAULT_STORE_MODE },
 );
 
 has 'kid_keys' => (
@@ -299,6 +314,7 @@ sub BUILD {
 
   $self->_check_configuration();
   $self->_check_audiences_configuration();
+  $self->_check_cache_configuration();
 
   $self->provider;
   $self->id;
@@ -528,9 +544,7 @@ sub get_token {
     refresh_scope => { isa => 'Str', optional => 1 },
   );
 
-  my $grant_type = $params{grant_type}
-                     || $self->config->{token_endpoint_grant_type}
-                     || $DEFAULT_TOKEN_ENDPOINT_GRANT_TYPE;
+  my $grant_type = $params{grant_type} || $self->token_endpoint_grant_type;
 
   my $auth_method = $params{auth_method}
                       || $self->config->{token_endpoint_auth_method}
@@ -1169,6 +1183,7 @@ sub _check_configuration {
     post_logout_redirect_uri         => { isa => 'Str', optional => 1 },
     logout_with_id_token             => { isa => 'Str', optional => 1 },
     logout_extra_params              => { isa => 'HashRef', optional => 1 },
+    cache_config                     => { isa => 'HashRef', optional => 1 },
     mocked_identity                  => { isa => 'HashRef', optional => 1 },
     mocked_access_token              => { isa => 'HashRef', optional => 1 },
     mocked_userinfo                  => { isa => 'HashRef', optional => 1 },
@@ -1195,6 +1210,19 @@ sub _check_audiences_configuration {
       audience => { isa => 'Str', optional => 0 },
       scope    => { isa => 'Str', optional => 1 },
     );
+  }
+}
+
+
+sub _check_cache_configuration {
+  my $self = shift;
+
+  if ($self->store_mode eq 'cache') {
+    my $grant_type = $self->token_endpoint_grant_type;
+    unless ($grant_type eq 'client_credentials' || $grant_type eq 'password') {
+      croak("OIDC: you cannot use the 'cache' store mode with the '$grant_type' grant type, "
+            . "but only with the 'client_credentials' or 'password' grant types");
+    }
   }
 }
 

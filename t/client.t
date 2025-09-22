@@ -59,6 +59,19 @@ sub test_build_with_exceptions {
       $class->new(
         log => $log,
         config => {
+          provider   => 'my_provider',
+          id         => 'my_client_id',
+          secret     => 'my_client_secret',
+          store_mode => 'cache',
+        },
+      );
+    } qr/you cannot use the 'cache' store mode with the 'authorization_code' grant type/,
+      'cache store mode incompatible with authorization_code grant type';
+
+    throws_ok {
+      $class->new(
+        log => $log,
+        config => {
           provider => 'my_provider',
           id       => 'my_client_id',
           secret   => 'my_client_secret',
