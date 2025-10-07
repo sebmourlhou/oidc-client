@@ -486,7 +486,8 @@ sub test_refresh_token_ok {
                                               refresh_token => 'my_old_refresh_token' ] ],
                'expected call to client->get_token');
     cmp_deeply([ $obj->client->next_call(5) ],
-               [ 'verify_token', [ $obj->client, token => 'my_id_token',
+               [ 'verify_token', [ $obj->client, token             => 'my_id_token',
+                                                 expected_subject  => 'my_subject',
                                                  expected_audience => 'my_id',
                                                  expected_nonce    => 'a1370',
                                                  no_nonce_accepted => 1 ] ],
@@ -621,7 +622,8 @@ sub test_refresh_token_ok {
                                               refresh_token => 'my_old_refresh_token' ] ],
                'expected call to client->get_token');
     cmp_deeply([ $obj->client->next_call(5) ],
-               [ 'verify_token', [ $obj->client, token => 'my_id_token',
+               [ 'verify_token', [ $obj->client, token             => 'my_id_token',
+                                                 expected_subject  => 'my_subject',
                                                  expected_audience => 'my_id' ] ],
                'expected call to client->verify_token');
   };

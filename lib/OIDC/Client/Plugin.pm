@@ -344,9 +344,11 @@ sub refresh_token {
   if (my $id_token = $token_response->id_token) {
     my $identity = $self->get_stored_identity()
       or OIDC::Client::Error->throw("OIDC: no identity has been stored");
-    my $expected_nonce = $identity->claims->{nonce};
+    my $expected_subject = $identity->subject;
+    my $expected_nonce   = $identity->claims->{nonce};
     my $claims_id_token = $self->client->verify_token(
       token             => $id_token,
+      expected_subject  => $expected_subject,
       expected_audience => $self->client->id,
       $expected_nonce ? (expected_nonce    => $expected_nonce,
                          no_nonce_accepted => 1)
