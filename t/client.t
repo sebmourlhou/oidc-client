@@ -272,7 +272,7 @@ sub test_decode_jwt_options_from_default_value {
     my $decode_jwt_options = $client->decode_jwt_options;
 
     # Then
-    my %expected = (leeway => 60);
+    my %expected = (leeway => 60, verify_exp => 1, verify_iat => 1);
     cmp_deeply($decode_jwt_options, \%expected,
                'from default value');
   };

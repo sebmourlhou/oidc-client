@@ -80,7 +80,9 @@ enum 'GrantType'    => [qw/authorization_code client_credentials password refres
 enum 'AuthMethod'   => [qw/post basic/];
 
 Readonly my %DEFAULT_DECODE_JWT_OPTIONS => (
-  leeway => 60,  # to account for clock skew
+  verify_exp => 1,   # require valid 'exp' claim
+  verify_iat => 1,   # require valid 'iat' claim
+  leeway     => 60,  # to account for clock skew
 );
 
 Readonly my $DEFAULT_TOKEN_ENDPOINT_GRANT_TYPE  => 'authorization_code';
@@ -616,15 +618,15 @@ The following claims are validated :
 
 =item "exp" (Expiration Time) claim
 
-By default, must be valid (not in the future) if present.
+Must be present and valid (in the future).
 
 =item "iat" (Issued At) claim
 
-By default, must be valid (not in the future) if present.
+Must be present and valid (not in the future).
 
 =item "nbf" (Not Before) claim
 
-By default, must be valid (not in the future) if present.
+Must be valid (not in the future) if present.
 
 =item "iss" (Issuer) claim
 
