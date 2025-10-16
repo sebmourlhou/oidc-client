@@ -1072,12 +1072,6 @@ sub _get_audience_from_alias {
 }
 
 
-sub _get_values_from_space_delimited_string {
-  my $self = shift;
-  my ($str) = pos_validated_list(\@_, { isa => 'Maybe[Str]', optional => 0 });
-  return [ grep { $_ ne '' } split(/\s+/, $str // '') ];
-}
-
 
 sub _generate_uuid_string {
   my $self = shift;
