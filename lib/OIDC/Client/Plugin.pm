@@ -8,7 +8,6 @@ use namespace::autoclean;
 
 use Readonly;
 use Carp qw(croak);
-use Data::UUID;
 use List::Util qw(any);
 use Module::Load qw(load);
 use Mojo::URL;
@@ -90,12 +89,6 @@ has 'current_url' => (
   is       => 'ro',
   isa      => 'Str',
   required => 1,
-);
-
-has 'uuid_generator' => (
-  is      => 'ro',
-  isa     => 'Data::UUID',
-  default => sub { Data::UUID->new() },
 );
 
 has 'login_redirect_uri' => (
@@ -202,8 +195,8 @@ sub redirect_to_authorize {
     other_state_params => { isa => 'ArrayRef[Str]', optional => 1 },
   );
 
-  my $nonce = $self->_generate_uuid_string();
-  my $state = join ',', (@{$params{other_state_params} || []}, $self->_generate_uuid_string());
+  my $nonce = $self->client->generate_uuid_string();
+  my $state = join ',', (@{$params{other_state_params} || []}, $self->client->generate_uuid_string());
 
   my %args = (
     nonce => $nonce,
@@ -737,7 +730,7 @@ sub redirect_to_logout {
     other_state_params       => { isa => 'ArrayRef[Str]', optional => 1 },
   );
 
-  my $state = join ',', (@{$params{other_state_params} || []}, $self->_generate_uuid_string());
+  my $state = join ',', (@{$params{other_state_params} || []}, $self->client->generate_uuid_string());
 
   my %args = (
     state => $state,
@@ -1069,13 +1062,6 @@ sub _get_audience_from_alias {
     or croak("OIDC: no audience for alias '$audience_alias'");
 
   return $audience;
-}
-
-
-
-sub _generate_uuid_string {
-  my $self = shift;
-  return $self->uuid_generator->create_str();
 }
 
 

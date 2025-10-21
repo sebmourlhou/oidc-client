@@ -97,10 +97,10 @@ sub test_redirect_to_authorize_with_maximum_parameters {
 
     # Then
     my ($state, $auth_data) = get_auth_data($obj);
-    cmp_deeply($state, re('^state_param1,state_param2,[\w-]{36,36}$'),
+    cmp_deeply($state, re('^state_param1,state_param2,fake_uuid$'),
                'expected state');
     cmp_deeply($auth_data,
-               { nonce      => re('^[\w-]{36,36}$'),
+               { nonce      => 'fake_uuid',
                  provider   => 'my_provider',
                  target_url => 'my_target_url' },
                'expected oidc_auth session data');
@@ -108,7 +108,7 @@ sub test_redirect_to_authorize_with_maximum_parameters {
     is($obj->redirect->(), 'my_auth_url',
        'expected redirect');
 
-    cmp_deeply([ $obj->client->next_call() ],
+    cmp_deeply([ $obj->client->next_call(3) ],
                [ 'auth_url', bag($obj->client, nonce        => $auth_data->{nonce},
                                                state        => $state,
                                                redirect_uri => 'my_login_redirect_uri',
@@ -128,10 +128,10 @@ sub test_redirect_to_authorize_with_minimum_parameters {
 
     # Then
     my ($state, $auth_data) = get_auth_data($obj);
-    cmp_deeply($state, re('^[\w-]{36,36}$'),
+    cmp_deeply($state, 'fake_uuid',
                'expected state');
     cmp_deeply($auth_data,
-               { nonce      => re('^[\w-]{36,36}$'),
+               { nonce      => 'fake_uuid',
                  provider   => 'my_provider',
                  target_url => '/current-url' },
                'expected oidc_auth session data');
@@ -139,7 +139,7 @@ sub test_redirect_to_authorize_with_minimum_parameters {
     is($obj->redirect->(), 'my_auth_url',
        'expected redirect');
 
-    cmp_deeply([ $obj->client->next_call() ],
+    cmp_deeply([ $obj->client->next_call(3) ],
                [ 'auth_url', bag($obj->client, nonce => $auth_data->{nonce},
                                                state => $state) ],
                'expected call to client');
@@ -1327,7 +1327,7 @@ sub test_redirect_to_logout_with_id_token {
 
     # Then
     my ($state, $logout_data) = get_logout_data($obj);
-    cmp_deeply($state, re('^my_state,[\w-]{36,36}$'),
+    cmp_deeply($state, re('^my_state,fake_uuid$'),
                'expected state');
     cmp_deeply($logout_data,
                { provider   => 'my_provider',
@@ -1337,7 +1337,7 @@ sub test_redirect_to_logout_with_id_token {
     is($obj->redirect->(), 'my_logout_url',
        'expected redirect');
 
-    cmp_deeply([ $obj->client->next_call(5) ],
+    cmp_deeply([ $obj->client->next_call(6) ],
                [ 'logout_url', bag($obj->client, id_token                 => 'my_id_token',
                                                  post_logout_redirect_uri => 'my_logout_redirect_uri',
                                                  state                    => $state,
@@ -1360,7 +1360,7 @@ sub test_redirect_to_logout_without_id_token {
 
     # Then
     my ($state, $logout_data) = get_logout_data($obj);
-    cmp_deeply($state, re('^[\w-]{36,36}$'),
+    cmp_deeply($state, 'fake_uuid',
                'expected state');
     cmp_deeply($logout_data,
                { provider   => 'my_provider',
@@ -1370,7 +1370,7 @@ sub test_redirect_to_logout_without_id_token {
     is($obj->redirect->(), 'my_logout_url',
        'expected redirect');
 
-    cmp_deeply([ $obj->client->next_call() ],
+    cmp_deeply([ $obj->client->next_call(2) ],
                [ 'logout_url', bag($obj->client, post_logout_redirect_uri => 'my_personal_logout_redirect_uri',
                                                  state                    => $state) ],
                'expected call to client');
@@ -2141,6 +2141,7 @@ sub build_object {
   $mock_client->mock(default_token_type  => sub { 'Bearer' });
   $mock_client->mock(token_endpoint_grant_type => sub { $config{token_endpoint_grant_type} || 'authorization_code' });
   $mock_client->mock(store_mode          => sub { $config{store_mode} || 'session' });
+  $mock_client->mock(generate_uuid_string => sub { 'fake_uuid' });
   $mock_client->mock(get_claim_value => sub {
     my ($self, %params) = @_;
     return $params{claims}->{$self->claim_mapping->{$params{name}}};

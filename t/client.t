@@ -48,15 +48,6 @@ sub test_build_with_exceptions {
 
     throws_ok {
       $class->new(
-        provider => 'my_provider',
-        id       => 'my_client_id',
-        log      => $log,
-      );
-    } qr/no secret/,
-      'secret is missing';
-
-    throws_ok {
-      $class->new(
         log => $log,
         config => {
           provider   => 'my_provider',
@@ -111,7 +102,7 @@ sub test_build_with_exceptions {
     'unexpected key for checked configuration';
 }
 
-sub test_secret_from_config {
+sub test_build_secret {
   subtest "secret from config" => sub {
 
     # Given
@@ -120,49 +111,54 @@ sub test_secret_from_config {
       secret   => 'my_client_secret',
       provider => 'my_provider',
     );
-
-    # When
     my $client = $class->new(
       log    => $log,
       config => \%config,
     );
 
-    # Then
+    # When - Then
     is($client->secret, 'my_client_secret',
        'from config');
   };
-}
 
-sub test_secret_from_env {
   subtest "secret from ENV" => sub {
+    $log->clear();
 
     # Given
     my %config = (
       id       => 'my_client_id',
       provider => 'my_provider',
     );
-
-    # When - Then
-    throws_ok {
-      $class->new(
-        log    => $log,
-        config => \%config,
-      );
-    } qr/OIDC: no secret configured or set up in environment/,
-      'missing secret';
-
-    # Given
+    my $client = $class->new(
+      log    => $log,
+      config => \%config,
+    );
     local $ENV{OIDC_MY_PROVIDER_SECRET} = 'secret';
 
-    # When
+    # When - Then
+    is($client->secret, 'secret',
+       'from environment variable');
+    $log->empty_ok('no log');
+  };
+
+  subtest "'none' auth method" => sub {
+    $log->clear();
+
+    # Given
+    my %config = (
+      id                         => 'my_client_id',
+      provider                   => 'my_provider',
+      token_endpoint_auth_method => 'none',
+    );
     my $client = $class->new(
       log    => $log,
       config => \%config,
     );
 
-    # Then
-    is($client->secret, 'secret',
-       'from environment variable');
+    # When - Then
+    throws_ok { $client->secret }
+      qr/no secret configured or set up in environment/,
+      'secret should not be used';
   };
 }
 
@@ -642,7 +638,7 @@ sub test_get_token_croaks_without_token_url {
     );
 
     # When - Then
-    throws_ok { $client->get_token() }
+    throws_ok { $client->get_token(code => 'my_code') }
       qr/OIDC: token url not found in provider metadata/,
       'missing token url';
   };
@@ -668,9 +664,10 @@ sub test_get_token_authorization_code {
       token_response_parser => $test->mocked_token_response_parser,
       kid_keys => {},
       config => {
-        provider => 'my_provider',
-        id       => 'my_client_id',
-        secret   => 'my_client_secret',
+        provider                   => 'my_provider',
+        id                         => 'my_client_id',
+        secret                     => 'my_client_secret',
+        token_endpoint_auth_method => 'client_secret_post',
       },
       provider_metadata => { token_url => 'https://my-provider/token' },
     );
@@ -705,7 +702,7 @@ sub test_get_token_authorization_code {
                'expected log');
   };
 
-  subtest "get_token() authorization_code grant type from config + basic" => sub {
+  subtest "get_token() authorization_code grant type from config + client_secret_basic" => sub {
 
     # Given
     my $client = $class->new(
@@ -718,7 +715,6 @@ sub test_get_token_authorization_code {
         id                         => 'my_client_id',
         secret                     => 'my_client_secret',
         token_endpoint_grant_type  => 'authorization_code',
-        token_endpoint_auth_method => 'basic',
         signin_redirect_uri        => 'my_signin_redirect_uri',
         audience                   => 'my_audience',
       },
@@ -747,6 +743,163 @@ sub test_get_token_authorization_code {
                [ 'post', [ $test->mocked_user_agent, 'https://my-provider/token', \%expected_headers, 'form', \%expected_args ] ],
                'expected call to user agent');
   };
+
+  subtest "get_token() authorization_code grant type from config + client_secret_basic" => sub {
+
+    # Given
+    my $client = $class->new(
+      log                   => $log,
+      user_agent            => $test->mocked_user_agent,
+      token_response_parser => $test->mocked_token_response_parser,
+      kid_keys => {},
+      config => {
+        provider                   => 'my_provider',
+        id                         => 'my_client_id',
+        secret                     => 'my_client_secret',
+        token_endpoint_grant_type  => 'authorization_code',
+        signin_redirect_uri        => 'my_signin_redirect_uri',
+        audience                   => 'my_audience',
+      },
+      provider_metadata => { token_url => 'https://my-provider/token' },
+    );
+
+    # When
+    my $token_response = $client->get_token(
+      code => 'my_code',
+    );
+
+    # Then
+    is($token_response->access_token, 'my_access_token',
+       'expected access token');
+
+    my %expected_args = (
+      grant_type    => 'authorization_code',
+      code          => 'my_code',
+      redirect_uri  => 'my_signin_redirect_uri',
+      audience      => 'my_audience',
+    );
+    my %expected_headers = (
+      Authorization => 'Basic bXlfY2xpZW50X2lkOm15X2NsaWVudF9zZWNyZXQ=',
+    );
+    cmp_deeply([ $test->mocked_user_agent->next_call() ],
+               [ 'post', [ $test->mocked_user_agent, 'https://my-provider/token', \%expected_headers, 'form', \%expected_args ] ],
+               'expected call to user agent');
+  };
+
+  subtest "get_token() authorization_code - client_secret_jwt auth method" => sub {
+
+    # Given
+    $test->mock_encode_jwt();  # encode_jwt() args are placed directly into 'client_assertion'
+    my $client = $class->new(
+      log                   => $log,
+      user_agent            => $test->mocked_user_agent,
+      token_response_parser => $test->mocked_token_response_parser,
+      kid_keys => {},
+      config => {
+        provider                   => 'my_provider',
+        id                         => 'my_client_id',
+        secret                     => 'my_client_secret',
+        signin_redirect_uri        => 'my_signin_redirect_uri',
+        client_auth_method         => 'client_secret_jwt',
+      },
+      provider_metadata => { token_url => 'https://my-provider/token' },
+    );
+
+    # When
+    my $token_response = $client->get_token(
+      code => 'my_code',
+    );
+
+    # Then
+    is($token_response->access_token, 'my_access_token',
+       'expected access token');
+    my %expected_encode_jwt_args = (
+      alg => 'HS256',
+      key => 'my_client_secret',
+      payload => {
+        iss => 'my_client_id',
+        sub => 'my_client_id',
+        aud => 'https://my-provider/token',
+        jti => re('\w+'),
+        iat => re('\d+'),
+        exp => re('\d+'),
+      },
+    );
+    my %expected_args = (
+      grant_type            => 'authorization_code',
+      code                  => 'my_code',
+      redirect_uri          => 'my_signin_redirect_uri',
+      client_id             => 'my_client_id',
+      client_assertion_type => 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+      client_assertion      => \%expected_encode_jwt_args,
+    );
+    my %expected_headers = ();
+    my @user_agent_sended_args = $test->mocked_user_agent->next_call();
+    cmp_deeply(\@user_agent_sended_args,
+               [ 'post', [ $test->mocked_user_agent, 'https://my-provider/token', \%expected_headers, 'form', \%expected_args ] ],
+               'expected call to user agent');
+    my $client_assertion_sended_claims = $user_agent_sended_args[1][4]{client_assertion}{payload};
+    is($client_assertion_sended_claims->{exp}, $client_assertion_sended_claims->{iat} + 120,
+       'expected exp claim value');
+  };
+
+  subtest "get_token() authorization_code - private_key_jwt auth method" => sub {
+
+    # Given
+    $test->mock_encode_jwt();  # encode_jwt() args are placed directly into 'client_assertion'
+    my $private_jwk = { kty => 'FAKE' };
+    my $client = $class->new(
+      log                   => $log,
+      user_agent            => $test->mocked_user_agent,
+      token_response_parser => $test->mocked_token_response_parser,
+      kid_keys => {},
+      config => {
+        provider                   => 'my_provider',
+        id                         => 'my_client_id',
+        private_jwk                => $private_jwk,
+        signin_redirect_uri        => 'my_signin_redirect_uri',
+        client_auth_method         => 'private_key_jwt',
+      },
+      provider_metadata => { token_url => 'https://my-provider/token' },
+    );
+
+    # When
+    my $token_response = $client->get_token(
+      code => 'my_code',
+    );
+
+    # Then
+    is($token_response->access_token, 'my_access_token',
+       'expected access token');
+    my %expected_encode_jwt_args = (
+      alg => 'RS256',
+      key => $private_jwk,
+      payload => {
+        iss => 'my_client_id',
+        sub => 'my_client_id',
+        aud => 'https://my-provider/token',
+        jti => re('\w+'),
+        iat => re('\d+'),
+        exp => re('\d+'),
+      },
+    );
+    my %expected_args = (
+      grant_type            => 'authorization_code',
+      code                  => 'my_code',
+      redirect_uri          => 'my_signin_redirect_uri',
+      client_id             => 'my_client_id',
+      client_assertion_type => 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+      client_assertion      => \%expected_encode_jwt_args,
+    );
+    my %expected_headers = ();
+    my @user_agent_sended_args = $test->mocked_user_agent->next_call();
+    cmp_deeply(\@user_agent_sended_args,
+               [ 'post', [ $test->mocked_user_agent, 'https://my-provider/token', \%expected_headers, 'form', \%expected_args ] ],
+               'expected call to user agent');
+    my $client_assertion_sended_claims = $user_agent_sended_args[1][4]{client_assertion}{payload};
+    is($client_assertion_sended_claims->{exp}, $client_assertion_sended_claims->{iat} + 120,
+       'expected exp claim value');
+  };
 }
 
 sub test_get_token_client_credentials {
@@ -768,9 +921,10 @@ sub test_get_token_client_credentials {
       token_response_parser => $test->mocked_token_response_parser,
       kid_keys => {},
       config => {
-        provider => 'my_provider',
-        id       => 'my_client_id',
-        secret   => 'my_client_secret',
+        provider           => 'my_provider',
+        id                 => 'my_client_id',
+        secret             => 'my_client_secret',
+        client_auth_method => 'client_secret_post',
       },
       provider_metadata => { token_url => 'https://my-provider/token' },
     );
@@ -798,7 +952,7 @@ sub test_get_token_client_credentials {
                'expected call to user agent');
   };
 
-  subtest "get_token() client_credentials grant type from config + basic" => sub {
+  subtest "get_token() client_credentials grant type from config + client_secret_basic" => sub {
 
     # Given
     my $client = $class->new(
@@ -811,7 +965,7 @@ sub test_get_token_client_credentials {
         id                         => 'my_client_id',
         secret                     => 'my_client_secret',
         token_endpoint_grant_type  => 'client_credentials',
-        token_endpoint_auth_method => 'basic',
+        token_endpoint_auth_method => 'client_secret_basic',
         scope                      => 'my_scope',
         audience                   => 'my_audience',
       },
@@ -858,9 +1012,10 @@ sub test_get_token_password {
       token_response_parser => $test->mocked_token_response_parser,
       kid_keys => {},
       config => {
-        provider => 'my_provider',
-        id       => 'my_client_id',
-        secret   => 'my_client_secret',
+        provider           => 'my_provider',
+        id                 => 'my_client_id',
+        secret             => 'my_client_secret',
+        client_auth_method => 'client_secret_post',
       },
       provider_metadata => { token_url => 'https://my-provider/token' },
     );
@@ -892,7 +1047,7 @@ sub test_get_token_password {
                'expected call to user agent');
   };
 
-  subtest "get_token() password grant type from config + basic" => sub {
+  subtest "get_token() password grant type from config + client_secret_basic" => sub {
 
     # Given
     my $client = $class->new(
@@ -905,7 +1060,7 @@ sub test_get_token_password {
         id                         => 'my_client_id',
         secret                     => 'my_client_secret',
         token_endpoint_grant_type  => 'password',
-        token_endpoint_auth_method => 'basic',
+        token_endpoint_auth_method => 'client_secret_basic',
         username                   => 'my_username',
         password                   => 'my_password',
         scope                      => 'my_scope1 my_scope2',
@@ -956,11 +1111,12 @@ sub test_get_token_refresh_token {
       token_response_parser => $test->mocked_token_response_parser,
       kid_keys => {},
       config => {
-        provider      => 'my_provider',
-        id            => 'my_client_id',
-        secret        => 'my_client_secret',
-        scope         => 'my_scope',
-        refresh_scope => 'my_refresh_scope',
+        provider           => 'my_provider',
+        id                 => 'my_client_id',
+        secret             => 'my_client_secret',
+        scope              => 'my_scope',
+        refresh_scope      => 'my_refresh_scope',
+        client_auth_method => 'client_secret_post',
       },
       provider_metadata => { token_url => 'https://my-provider/token' },
     );
@@ -999,6 +1155,7 @@ sub test_get_token_refresh_token {
         id       => 'my_client_id',
         secret   => 'my_client_secret',
         scope    => 'my_scope',
+        client_auth_method => 'client_secret_post',
       },
       provider_metadata => { token_url => 'https://my-provider/token' },
     );
@@ -1026,7 +1183,7 @@ sub test_get_token_refresh_token {
                'expected call to user agent');
   };
 
-  subtest "get_token() refresh_token grant type with basic auth" => sub {
+  subtest "get_token() refresh_token grant type with client_secret_basic auth" => sub {
 
     # Given
     my $client = $class->new(
@@ -1039,7 +1196,7 @@ sub test_get_token_refresh_token {
         id                         => 'my_client_id',
         secret                     => 'my_client_secret',
         token_endpoint_grant_type  => 'client_credentials',
-        token_endpoint_auth_method => 'basic',
+        token_endpoint_auth_method => 'client_secret_basic',
         scope                      => 'my_scope',
         audience                   => 'my_audience',
       },
@@ -1067,9 +1224,64 @@ sub test_get_token_refresh_token {
                [ 'post', [ $test->mocked_user_agent, 'https://my-provider/token', \%expected_headers, 'form', \%expected_args ] ],
                'expected call to user agent');
   };
+
+  subtest "get_token() refresh_token grant type with private_key_jwt auth method" => sub {
+
+    # Given
+    $test->mock_encode_jwt();  # encode_jwt() args are placed directly into 'client_assertion'
+    my $client = $class->new(
+      log                   => $log,
+      user_agent            => $test->mocked_user_agent,
+      token_response_parser => $test->mocked_token_response_parser,
+      kid_keys => {},
+      config => {
+        provider                   => 'my_provider',
+        id                         => 'my_client_id',
+        private_key_file           => "$Bin/resources/client.key",
+        token_endpoint_grant_type  => 'client_credentials',
+        token_endpoint_auth_method => 'private_key_jwt',
+        scope                      => 'my_scope',
+      },
+      provider_metadata => { token_url => 'https://my-provider/token' },
+    );
+
+    # When
+    my $token_response = $client->get_token(
+      grant_type    => 'refresh_token',
+      refresh_token => 'my_refresh_token',
+    );
+
+    # Then
+    is($token_response->access_token, 'my_access_token',
+       'expected access token');
+    my $expected_private_key = "FAKE PRIVATE KEY\n";
+    my %expected_encode_jwt_args = (
+      alg => 'RS256',
+      key => \$expected_private_key,
+      payload => {
+        iss => 'my_client_id',
+        sub => 'my_client_id',
+        aud => 'https://my-provider/token',
+        jti => re('\w+'),
+        iat => re('\d+'),
+        exp => re('\d+'),
+      },
+    );
+    my %expected_args = (
+      grant_type            => 'refresh_token',
+      refresh_token         => 'my_refresh_token',
+      client_id             => 'my_client_id',
+      client_assertion_type => 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+      client_assertion      => \%expected_encode_jwt_args,
+    );
+    my %expected_headers = ();
+    cmp_deeply([ $test->mocked_user_agent->next_call() ],
+               [ 'post', [ $test->mocked_user_agent, 'https://my-provider/token', \%expected_headers, 'form', \%expected_args ] ],
+               'expected call to user agent');
+  };
 }
 
-sub test_verify_token {
+sub test_verify_jwt_token {
 
   # Prepare
   my $client = $class->new(
@@ -1596,9 +1808,10 @@ sub test_exchange_token {
       user_agent            => $test->mocked_user_agent,
       token_response_parser => $test->mocked_token_response_parser,
       config => {
-        provider => 'my_provider',
-        id       => 'my_client_id',
-        secret   => 'my_client_secret',
+        provider                   => 'my_provider',
+        id                         => 'my_client_id',
+        secret                     => 'my_client_secret',
+        token_endpoint_auth_method => 'client_secret_post',
       },
       provider_metadata => { token_url => 'https://my-provider/token' },
     );
@@ -1622,7 +1835,7 @@ sub test_exchange_token {
       subject_token_type => 'urn:ietf:params:oauth:token-type:access_token',
     );
     cmp_deeply([ $test->mocked_user_agent->next_call() ],
-               [ 'post', [ $test->mocked_user_agent, 'https://my-provider/token', 'form', \%expected_args ] ],
+               [ 'post', [ $test->mocked_user_agent, 'https://my-provider/token', {}, 'form', \%expected_args ] ],
                'expected call to user agent');
   };
 
@@ -1634,9 +1847,10 @@ sub test_exchange_token {
       user_agent            => $test->mocked_user_agent,
       token_response_parser => $test->mocked_token_response_parser,
       config => {
-        provider => 'my_provider',
-        id       => 'my_client_id',
-        secret   => 'my_client_secret',
+        provider           => 'my_provider',
+        id                 => 'my_client_id',
+        secret             => 'my_client_secret',
+        client_auth_method => 'client_secret_post',
       },
       provider_metadata => { token_url => 'https://my-provider/token' },
     );
@@ -1662,7 +1876,7 @@ sub test_exchange_token {
       subject_token_type => 'urn:ietf:params:oauth:token-type:access_token',
     );
     cmp_deeply([ $test->mocked_user_agent->next_call() ],
-               [ 'post', [ $test->mocked_user_agent, 'https://my-provider/token', 'form', \%expected_args ] ],
+               [ 'post', [ $test->mocked_user_agent, 'https://my-provider/token', {}, 'form', \%expected_args ] ],
                'expected call to user agent');
   };
 
@@ -1698,16 +1912,137 @@ sub test_exchange_token {
        'expected access token');
 
     my %expected_args = (
-      client_id          => 'my_client_id',
-      client_secret      => 'my_client_secret',
       audience           => 'my_audience',
       scope              => 'my_scope1 my_scope2',
       grant_type         => 'urn:ietf:params:oauth:grant-type:token-exchange',
       subject_token      => 'my_token',
       subject_token_type => 'urn:ietf:params:oauth:token-type:access_token',
     );
+    my %expected_headers = (
+      Authorization => 'Basic bXlfY2xpZW50X2lkOm15X2NsaWVudF9zZWNyZXQ=',
+    );
     cmp_deeply([ $test->mocked_user_agent->next_call() ],
-               [ 'post', [ $test->mocked_user_agent, 'https://my-provider/token', 'form', \%expected_args ] ],
+               [ 'post', [ $test->mocked_user_agent, 'https://my-provider/token', \%expected_headers, 'form', \%expected_args ] ],
+               'expected call to user agent');
+  };
+
+  subtest "exchange_token() - client_secret_jwt auth method" => sub {
+
+    # Given
+    $test->mock_encode_jwt();  # encode_jwt() args are placed directly into 'client_assertion'
+    my $client = $class->new(
+      log                   => $log,
+      user_agent            => $test->mocked_user_agent,
+      token_response_parser => $test->mocked_token_response_parser,
+      config => {
+        provider                  => 'my_provider',
+        id                        => 'my_client_id',
+        secret                    => 'my_client_secret',
+        client_auth_method        => 'client_secret_jwt',
+        client_assertion_audience => 'my_client_assertion_audience',
+        audience_alias => {
+          my_alias => {
+            audience => 'my_audience',
+          },
+        },
+      },
+      provider_metadata => { token_url => 'https://my-provider/token' },
+    );
+
+    # When
+    my $exchanged_token = $client->exchange_token(
+      token    => 'my_token',
+      audience => 'my_audience',
+    );
+
+    # Then
+    is($exchanged_token->access_token, 'my_access_token',
+       'expected access token');
+    my %expected_encode_jwt_args = (
+      alg => 'HS256',
+      key => 'my_client_secret',
+      payload => {
+        iss => 'my_client_id',
+        sub => 'my_client_id',
+        aud => 'my_client_assertion_audience',
+        jti => re('\w+'),
+        iat => re('\d+'),
+        exp => re('\d+'),
+      },
+    );
+    my %expected_args = (
+      audience              => 'my_audience',
+      grant_type            => 'urn:ietf:params:oauth:grant-type:token-exchange',
+      subject_token         => 'my_token',
+      subject_token_type    => 'urn:ietf:params:oauth:token-type:access_token',
+      client_id             => 'my_client_id',
+      client_assertion_type => 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+      client_assertion      => \%expected_encode_jwt_args,
+    );
+    my %expected_headers = ();
+    my @user_agent_sended_args = $test->mocked_user_agent->next_call();
+    cmp_deeply(\@user_agent_sended_args,
+               [ 'post', [ $test->mocked_user_agent, 'https://my-provider/token', \%expected_headers, 'form', \%expected_args ] ],
+               'expected call to user agent');
+  };
+
+  subtest "exchange_token() - private_key_jwt auth method" => sub {
+
+    # Given
+    $test->mock_encode_jwt();  # encode_jwt() args are placed directly into 'client_assertion'
+    my $client = $class->new(
+      log                   => $log,
+      user_agent            => $test->mocked_user_agent,
+      token_response_parser => $test->mocked_token_response_parser,
+      config => {
+        provider                  => 'my_provider',
+        id                        => 'my_client_id',
+        private_jwk_file          => "$Bin/resources/client.jwk",
+        client_auth_method        => 'private_key_jwt',
+        client_assertion_audience => 'my_client_assertion_audience',
+        audience_alias => {
+          my_alias => {
+            audience => 'my_audience',
+          },
+        },
+      },
+      provider_metadata => { token_url => 'https://my-provider/token' },
+    );
+
+    # When
+    my $exchanged_token = $client->exchange_token(
+      token    => 'my_token',
+      audience => 'my_audience',
+    );
+
+    # Then
+    is($exchanged_token->access_token, 'my_access_token',
+       'expected access token');
+    my %expected_encode_jwt_args = (
+      alg => 'RS256',
+      key => {kty => 'FAKE'},
+      payload => {
+        iss => 'my_client_id',
+        sub => 'my_client_id',
+        aud => 'my_client_assertion_audience',
+        jti => re('\w+'),
+        iat => re('\d+'),
+        exp => re('\d+'),
+      },
+    );
+    my %expected_args = (
+      audience              => 'my_audience',
+      grant_type            => 'urn:ietf:params:oauth:grant-type:token-exchange',
+      subject_token         => 'my_token',
+      subject_token_type    => 'urn:ietf:params:oauth:token-type:access_token',
+      client_id             => 'my_client_id',
+      client_assertion_type => 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+      client_assertion      => \%expected_encode_jwt_args,
+    );
+    my %expected_headers = ();
+    my @user_agent_sended_args = $test->mocked_user_agent->next_call();
+    cmp_deeply(\@user_agent_sended_args,
+               [ 'post', [ $test->mocked_user_agent, 'https://my-provider/token', \%expected_headers, 'form', \%expected_args ] ],
                'expected call to user agent');
   };
 }
