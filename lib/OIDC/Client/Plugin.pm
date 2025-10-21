@@ -280,9 +280,12 @@ sub get_token {
   }
 
   if (my $id_token = $token_response->id_token) {
-    my $claims_id_token = $self->client->verify_token(
-      token             => $id_token,
-      expected_audience => $self->client->id,
+    my $claims_id_token = $self->client->verify_jwt_token(
+      token                        => $id_token,
+      expected_audience            => $self->client->id,
+      expected_authorized_party    => $self->client->id,
+      no_authorized_party_accepted => 1,
+      max_token_age                => $self->client->max_id_token_age,
       $auth_data ? (expected_nonce => $auth_data->{nonce}) : (),
     );
     $self->_store_identity(
@@ -361,12 +364,15 @@ sub refresh_token {
   if (my $id_token = $token_response->id_token) {
     my $identity = $self->get_stored_identity()
       or OIDC::Client::Error->throw("OIDC: no identity has been stored");
+
     my $expected_subject = $identity->subject;
     my $expected_nonce   = $identity->claims->{nonce};
-    my $claims_id_token = $self->client->verify_token(
-      token             => $id_token,
-      expected_subject  => $expected_subject,
-      expected_audience => $self->client->id,
+    my $claims_id_token = $self->client->verify_jwt_token(
+      token                     => $id_token,
+      expected_subject          => $expected_subject,
+      expected_audience         => $self->client->id,
+      expected_authorized_party => $identity->claims->{azp},
+      max_token_age             => $self->client->max_id_token_age,
       $expected_nonce ? (expected_nonce    => $expected_nonce,
                          no_nonce_accepted => 1)
                       : (),
@@ -445,9 +451,12 @@ sub exchange_token {
 
   my $access_token = $c->oidc->verify_token();
 
-Verifies the JWT access token received in the Authorization header of the current request.
+Verifies the access token received in the Authorization header of the current request.
 Throws an exception if an error occurs. Otherwise, stores an L<OIDC::Client::AccessToken> object
 and returns it.
+
+Depending on the C<token_validation_method> configuration entry, the token is validated
+either by expecting it is a JWT token or by using the introspection endpoint.
 
 To bypass the token verification in local environment, you can configure the C<mocked_access_token>
 entry (hashref) to be used to create an L<OIDC::Client::AccessToken> object that will be returned
@@ -465,7 +474,9 @@ sub verify_token {
   my $token = $self->get_token_from_authorization_header()
     or OIDC::Client::Error->throw("OIDC: no token in authorization header");
 
-  my $claims = $self->client->verify_token(token => $token);
+  my $claims = $self->client->token_validation_method eq 'jwt'
+                 ? $self->client->verify_jwt_token(token => $token)
+                 : $self->client->introspect_token(token => $token, token_type_hint => 'access_token');
 
   my $access_token = build_access_token_from_claims($claims, $token);
   $self->store_access_token($access_token);
@@ -817,7 +828,7 @@ sub get_valid_access_token {
     return $stored_access_token;
   }
 
-  unless ($stored_access_token->has_expired($self->client->config->{expiration_leeway})) {
+  unless ($stored_access_token->has_expired($self->client->expiration_leeway)) {
     $self->log_msg(debug => "OIDC: access token for audience '$audience' has been retrieved from store");
     return $stored_access_token;
   }
@@ -867,7 +878,7 @@ sub get_valid_identity {
   my $stored_identity = $self->get_stored_identity()
     or return;
 
-  return if $stored_identity->has_expired($self->client->config->{expiration_leeway});
+  return if $stored_identity->has_expired($self->client->expiration_leeway);
 
   return $stored_identity;
 }

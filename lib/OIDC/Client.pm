@@ -78,8 +78,9 @@ enum 'StoreMode'    => [qw/session stash cache/];
 enum 'ResponseMode' => [qw/query form_post/];
 enum 'GrantType'    => [qw/authorization_code client_credentials password refresh_token/];
 enum 'AuthMethod'   => [qw/client_secret_basic client_secret_post client_secret_jwt private_key_jwt none/];
+enum 'TokenValidationMethod' => [qw/jwt introspection/];
 
-Readonly my %DEFAULT_DECODE_JWT_OPTIONS => (
+Readonly my %DEFAULT_JWT_DECODING_OPTIONS => (
   verify_exp => 1,   # require valid 'exp' claim
   verify_iat => 1,   # require valid 'iat' claim
   leeway     => 60,  # to account for clock skew
@@ -95,7 +96,9 @@ Readonly my $DEFAULT_TOKEN_ENDPOINT_AUTH_METHOD => 'post';
 Readonly my $DEFAULT_TOKEN_TYPE                 => 'Bearer';
 Readonly my $DEFAULT_STORE_MODE                 => 'session';
 Readonly my $DEFAULT_AUTH_METHOD                => 'client_secret_basic';
+Readonly my $DEFAULT_TOKEN_VALIDATION_METHOD    => 'jwt';
 Readonly my $DEFAULT_CLIENT_ASSERTION_LIFETIME  => 120;
+Readonly my $DEFAULT_MAX_ID_TOKEN_AGE           => 30;  # in addition to the leeway to account for clock skew
 
 has 'config' => (
   is      => 'ro',
@@ -173,11 +176,27 @@ has 'claim_mapping' => (
   builder => '_build_claim_mapping',
 );
 
-has 'decode_jwt_options' => (
+has 'expiration_leeway' => (
   is      => 'ro',
+  isa     => 'Maybe[Int]',
+  lazy    => 1,
+  default => sub { shift->config->{expiration_leeway} },
+);
+
+has 'max_id_token_age' => (
+  is      => 'ro',
+  isa     => 'Int',
+  lazy    => 1,
+  default => sub { shift->config->{max_id_token_age}
+                     || $DEFAULT_MAX_ID_TOKEN_AGE },
+);
+
+has 'jwt_decoding_options' => (
+  is      => 'rw',
   isa     => 'HashRef',
   lazy    => 1,
-  builder => '_build_decode_jwt_options',
+  default => sub { shift->config->{jwt_decoding_options}
+                     || \%DEFAULT_JWT_DECODING_OPTIONS },
 );
 
 has 'client_secret_jwt_encoding_options' => (
@@ -228,6 +247,16 @@ has 'token_endpoint_auth_method' => (
                      || $DEFAULT_AUTH_METHOD },
 );
 
+has 'introspection_endpoint_auth_method' => (
+  is      => 'ro',
+  isa     => 'AuthMethod',
+  lazy    => 1,
+  default => sub { my $self = shift;
+                   $self->config->{introspection_endpoint_auth_method}
+                     || $self->client_auth_method
+                     || $DEFAULT_AUTH_METHOD },
+);
+
 has 'token_validation_method' => (
   is      => 'ro',
   isa     => 'TokenValidationMethod',
@@ -254,6 +283,7 @@ has 'client_assertion_audience' => (
 has 'default_token_type' => (
   is      => 'ro',
   isa     => 'Str',
+  lazy    => 1,
   default => sub { $DEFAULT_TOKEN_TYPE },
 );
 
@@ -289,12 +319,14 @@ has 'uuid_generator' => (
 has 'response_parser' => (
   is      => 'ro',
   isa     => 'OIDC::Client::ResponseParser',
+  lazy    => 1,
   default => sub { OIDC::Client::ResponseParser->new() },
 );
 
 has 'token_response_parser' => (
   is      => 'ro',
   isa     => 'OIDC::Client::TokenResponseParser',
+  lazy    => 1,
   default => sub { OIDC::Client::TokenResponseParser->new() },
 );
 
@@ -390,12 +422,6 @@ sub _build_claim_mapping {
   return $self->config->{claim_mapping} || {};
 }
 
-sub _build_decode_jwt_options {
-  my $self = shift;
-
-  return $self->config->{decode_jwt_options} || \%DEFAULT_DECODE_JWT_OPTIONS;
-}
-
 sub _build_provider_metadata {
   my $self = shift;
 
@@ -406,7 +432,7 @@ sub _build_provider_metadata {
   }
 
   # provider metadata can be overloaded by configuration
-  for (qw/authorize_url end_session_url issuer token_url userinfo_url jwks_url/) {
+  for (qw/authorize_url end_session_url issuer token_url introspection_url userinfo_url jwks_url/) {
     $provider_metadata->{$_} = $self->config->{$_} if exists $self->config->{$_};
   }
 
@@ -421,7 +447,7 @@ sub _build_kid_keys {
   $self->log_msg(info => "OIDC/$provider: fetching JWT kid keys");
 
   my $jwks_url = $self->provider_metadata->{jwks_url}
-    or croak "OIDC: jwks_url not found in provider metadata";
+    or croak("OIDC: jwks_url not found in provider metadata");
 
   my $res = $self->user_agent->get($jwks_url)->result;
 
@@ -537,7 +563,7 @@ sub auth_url {
   );
 
   my $authorize_url = $self->provider_metadata->{authorize_url}
-    or croak "OIDC: authorize url not found in provider metadata";
+    or croak("OIDC: authorize url not found in provider metadata");
 
   my %args = (
     response_type => 'code',
@@ -586,11 +612,11 @@ sub auth_url {
     redirect_uri => q{http://yourapp/oidc/callback},
   );
 
-Fetch token(s) from an OAuth2/OIDC provider and returns a
+Fetch token(s) from an OAuth2/OIDC provider and returns an
 L<OIDC::Client::TokenResponse> object.
 
-This method doesn't execute any verification. Call the L</"verify_token( %args )">
-method to do so.
+This method doesn't perform any verification on the ID token.
+Call the L</"verify_jwt_token( %args )"> method to do so.
 
 The optional parameters are:
 
@@ -754,9 +780,9 @@ sub get_token {
 }
 
 
-=head2 verify_token( %args )
+=head2 verify_jwt_token( %args )
 
-  my $claims = $client->verify_token(
+  my $claims = $client->verify_jwt_token(
     token             => $token,
     expected_audience => $audience,
     expected_nonce    => $nonce,
@@ -764,7 +790,7 @@ sub get_token {
 
 Checks the structure, claims and signature of the JWT token.
 Throws an L<OIDC::Client::Error::TokenValidation> exception if an error occurs.
-Otherwise, returns the claims.
+Otherwise, returns the claims (hashref).
 
 This method automatically manages a JWK key rotation. If a JWK key error
 is detected during token verification, the JWK keys in memory are refreshed
@@ -819,9 +845,22 @@ Required.
 If the token is not intended for the expected audience, an exception is thrown.
 Default to the C<audience> configuration entry or otherwise the client id.
 
+=item expected_authorized_party
+
+If the C<azp> claim value is not the expected authorized_party, an exception is thrown
+unless the JWT token has no C<azp> claim and the C<no_authorized_party_accepted>
+parameter is true.
+Optional.
+
+=item no_authorized_party_accepted
+
+When the C<expected_authorized_party> parameter is defined, prevents an exception
+from being thrown if the JWT token does not contain an C<azp> claim.
+Default to false.
+
 =item expected_subject
 
-If the C<subject> claim value is not the expected subject, an exception is thrown.
+If the C<sub> claim value is not the expected subject, an exception is thrown.
 Optional.
 
 =item expected_nonce
@@ -840,53 +879,172 @@ Default to false.
 
 =cut
 
-sub verify_token {
+sub verify_jwt_token {
   my $self = shift;
   my (%params) = validated_hash(
     \@_,
-    token             => { isa => 'Str', optional => 0 },
-    expected_audience => { isa => 'Str', default => $self->audience },
-    expected_subject  => { isa => 'Str', optional => 1 },
-    expected_nonce    => { isa => 'Str', optional => 1 },
-    no_nonce_accepted => { isa => 'Bool', default => 0 },
+    token                        => { isa => 'Str', optional => 0 },
+    expected_audience            => { isa => 'Str', optional => 1 },
+    expected_authorized_party    => { isa => 'Maybe[Str]', optional => 1 },
+    no_authorized_party_accepted => { isa => 'Bool', default => 0 },
+    expected_subject             => { isa => 'Str', optional => 1 },
+    expected_nonce               => { isa => 'Str', optional => 1 },
+    no_nonce_accepted            => { isa => 'Bool', default => 0 },
+    max_token_age                => { isa => 'Int', optional => 1 },
   );
 
-  # checks the signature, the issuer and the timestamps
+  # checks the signature and the timestamps
   my $claims = $self->_decode_token($params{token});
 
+  # checks the issuer
+  $self->_validate_issuer($claims->{iss});
+
   # checks the audience
-  {
-    my $claim_audience = $claims->{aud};
-    defined $claim_audience
-      or croak "OIDC: the audience is not defined";
-    ref $claim_audience
-      and croak "OIDC: multiple audiences not implemented";
-    $claim_audience eq $params{expected_audience}
-      or OIDC::Client::Error::TokenValidation->throw(
-        "OIDC: unexpected audience, expected '$params{expected_audience}' but got '$claim_audience'"
-      );
+  $self->_validate_audience($claims->{aud}, $params{expected_audience});
+
+  # checks the authorized party
+  if (exists $params{expected_authorized_party}) {
+    unless (!exists $claims->{azp} && $params{no_authorized_party_accepted}) {
+      $self->_validate_authorized_party($claims->{azp}, $params{expected_authorized_party});
+    }
   }
 
   # checks the subject
   if (my $expected_subject = $params{expected_subject}) {
-    my $claim_subject = $claims->{sub};
-    defined $claim_subject
-      or croak "OIDC: the subject is not defined";
-    $claim_subject eq $expected_subject
-      or OIDC::Client::Error::TokenValidation->throw(
-        "OIDC: unexpected subject, expected '$expected_subject' but got '$claim_subject'"
-      );
+    $self->_validate_subject($claims->{sub}, $expected_subject);
   }
 
   # checks the nonce
   if (my $expected_nonce = $params{expected_nonce}) {
     unless (!exists $claims->{nonce} && $params{no_nonce_accepted}) {
-      my $claim_nonce = $claims->{nonce} || '';
-      $claim_nonce eq $expected_nonce
-        or OIDC::Client::Error::TokenValidation->throw(
-          "OIDC: unexpected nonce, expected '$expected_nonce' but got '$claim_nonce'"
-        );
+      $self->_validate_nonce($claims->{nonce}, $expected_nonce);
     }
+  }
+
+  # checks that the token has not been issued too far away from the current time
+  if (my $max_token_age = $params{max_token_age}) {
+    $self->_validate_age($claims->{iat}, $max_token_age);
+  }
+
+  return $claims;
+}
+
+# DEPRECATED!
+sub verify_token {
+  my ($self, %params) = @_;
+  warnings::warnif('deprecated',
+                   'OIDC::Client::verify_token() is deprecated in favor of OIDC::Client::verify_jwt_token()');
+  $self->verify_jwt_token(%params);
+}
+
+
+=head2 introspect_token( %args )
+
+  my $claims = $client->introspect_token(
+    token           => $token,
+    token_type_hint => 'access_token',
+  );
+
+Allows a Resource Server to validate a token and obtain its metadata by calling the provider's
+introspection endpoint. Typically used when the access token is opaque (not a JWT).
+
+Throws an L<OIDC::Client::Error::Provider> exception if an error is returned by the provider
+or an L<OIDC::Client::Error::TokenValidation> exception if a validation error occurs.
+Otherwise, returns the claims.
+
+The parameters are:
+
+=over 2
+
+=item token
+
+The token to validate.
+Required.
+
+=item token_type_hint
+
+Hint about the type of the token submitted for introspection.
+
+=item auth_method
+
+Specifies how the client authenticates with the identity provider.
+
+Supported client authentication methods:
+
+=over 2
+
+=item *
+
+client_secret_basic (default)
+
+=item *
+
+client_secret_post
+
+=item *
+
+client_secret_jwt
+
+=item *
+
+private_key_jwt
+
+=item *
+
+none
+
+=back
+
+Can also be specified in the C<introspection_endpoint_auth_method> configuration entry
+or the global C<client_auth_method> configuration entry.
+Default to C<client_secret_basic>.
+
+=item expected_audience
+
+If the C<aud> claim is present in the provider response of the introspection endpoint,
+its value must match the expected audience, otherwise an exception is thrown.
+Default to the C<audience> configuration entry or the client id.
+
+=back
+
+=cut
+
+sub introspect_token {
+  my $self = shift;
+  my (%params) = validated_hash(
+    \@_,
+    token             => { isa => 'Str', optional => 0 },
+    token_type_hint   => { isa => enum([qw/access_token refresh_token/]), optional => 1 },
+    auth_method       => { isa => 'AuthMethod', optional => 1 },
+    expected_audience => { isa => 'Str', optional => 1 },
+  );
+
+  my $introspection_url = $self->provider_metadata->{introspection_url}
+    or croak("OIDC: introspection_url not found in provider metadata");
+
+  my $auth_method = $params{auth_method} || $self->introspection_endpoint_auth_method;
+  my ($headers, $form) = $self->_build_client_auth_arguments($auth_method, $introspection_url);
+
+  $form->{token} = $params{token};
+
+  if (my $token_type_hint = $params{token_type_hint}) {
+    $form->{token_type_hint} = $token_type_hint;
+  }
+
+  $self->log_msg(debug => 'OIDC: calling provider to introspect token');
+  my $res = $self->user_agent->post($introspection_url, $headers, form => $form)->result;
+
+  my $claims = $self->response_parser->parse($res);
+
+  $claims->{active}
+    or OIDC::Client::Error::TokenValidation->throw("OIDC: inactive token");
+
+  if (exists $claims->{iss}) {
+    $self->_validate_issuer($claims->{iss});
+  }
+
+  if (exists $claims->{aud}) {
+    $self->_validate_audience($claims->{aud}, $params{expected_audience});
   }
 
   return $claims;
@@ -927,7 +1085,7 @@ sub get_userinfo {
   );
 
   my $userinfo_url = $self->provider_metadata->{userinfo_url}
-    or croak "OIDC: userinfo_url not found in provider metadata";
+    or croak("OIDC: userinfo_url not found in provider metadata");
 
   my $token_type = $params{token_type} || $self->default_token_type;
 
@@ -1191,7 +1349,7 @@ sub logout_url {
   );
 
   my $end_session_url = $self->provider_metadata->{end_session_url}
-    or croak "OIDC: end_session_url not found in provider metadata";
+    or croak("OIDC: end_session_url not found in provider metadata");
 
   my %args = (
     client_id => $self->id,
@@ -1279,33 +1437,24 @@ sub _get_provider_metadata {
   my $provider_config = $self->response_parser->parse($res);
 
   return {
-    authorize_url   => $provider_config->{authorization_endpoint},
-    end_session_url => $provider_config->{end_session_endpoint},
-    issuer          => $provider_config->{issuer},
-    token_url       => $provider_config->{token_endpoint},
-    userinfo_url    => $provider_config->{userinfo_endpoint},
-    jwks_url        => $provider_config->{jwks_uri},
+    authorize_url     => $provider_config->{authorization_endpoint},
+    end_session_url   => $provider_config->{end_session_endpoint},
+    issuer            => $provider_config->{issuer},
+    token_url         => $provider_config->{token_endpoint},
+    introspection_url => $provider_config->{introspection_endpoint},
+    userinfo_url      => $provider_config->{userinfo_endpoint},
+    jwks_url          => $provider_config->{jwks_uri},
   };
 }
-
-
-=head2 decode_jwt( %args )
-
-Simple pass-through of the Crypt::JWT::decode_jwt() function that can be mocked in tests
-
-=cut
-
-sub decode_jwt { Crypt::JWT::decode_jwt(@_) }
 
 
 sub _decode_token {
   my ($self, $token, $has_already_update_keys) = @_;
 
   return try {
-    decode_jwt(%{ $self->decode_jwt_options },
-               verify_iss => $self->provider_metadata->{issuer},
-               token      => $token,
-               kid_keys   => $self->kid_keys);
+    Crypt::JWT::decode_jwt(%{ $self->jwt_decoding_options },
+                           token    => $token,
+                           kid_keys => $self->kid_keys);
   }
   catch {
     my $e = $_;
@@ -1357,6 +1506,7 @@ sub _check_configuration {
     jwks_url                         => { isa => 'Str', optional => 1 },
     authorize_url                    => { isa => 'Str', optional => 1 },
     token_url                        => { isa => 'Str', optional => 1 },
+    introspection_url                => { isa => 'Str', optional => 1 },
     userinfo_url                     => { isa => 'Str', optional => 1 },
     end_session_url                  => { isa => 'Str', optional => 1 },
     signin_redirect_path             => { isa => 'Str', optional => 1 },
@@ -1365,9 +1515,10 @@ sub _check_configuration {
     refresh_scope                    => { isa => 'Str', optional => 1 },
     identity_expires_in              => { isa => 'Int', optional => 1 },
     expiration_leeway                => { isa => 'Int', optional => 1 },
+    max_id_token_age                 => { isa => 'Int', optional => 1 },
+    jwt_decoding_options             => { isa => 'HashRef', optional => 1 },
     client_secret_jwt_encoding_options => { isa => 'HashRef', optional => 1 },
     private_key_jwt_encoding_options => { isa => 'HashRef', optional => 1 },
-    decode_jwt_options               => { isa => 'HashRef', optional => 1 },
     claim_mapping                    => { isa => 'HashRef[Str]', optional => 1 },
     audience_alias                   => { isa => 'HashRef[HashRef]', optional => 1 },
     authorize_endpoint_response_mode => { isa => 'ResponseMode', optional => 1 },
@@ -1376,6 +1527,7 @@ sub _check_configuration {
     token_endpoint_grant_type        => { isa => 'GrantType', optional => 1 },
     client_auth_method               => { isa => 'AuthMethod', optional => 1 },
     token_endpoint_auth_method       => { isa => 'AuthMethod', optional => 1 },
+    introspection_endpoint_auth_method => { isa => 'AuthMethod', optional => 1 },
     client_assertion_lifetime        => { isa => 'Int', optional => 1 },
     client_assertion_audience        => { isa => 'Str', optional => 1 },
     username                         => { isa => 'Str', optional => 1 },
@@ -1528,7 +1680,7 @@ the token lifetime, here is an example using Moose attributes :
   sub do_stuff {
     my $self = shift;
 
-    if ($self->access_token->has_expired($self->oidc_client->config->{expiration_leeway})) {
+    if ($self->access_token->has_expired($self->oidc_client->expiration_leeway)) {
       $self->_clear_access_token();
       $self->_clear_api_useragent();
     }

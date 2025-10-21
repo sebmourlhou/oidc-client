@@ -239,11 +239,14 @@ sub test_get_token_ok {
                [ 'get_token', [ $obj->client, code         => 'my_code',
                                               redirect_uri => 'my_redirect_uri' ] ],
                'expected call to client->get_token');
-    cmp_deeply([ $obj->client->next_call(2) ],
-               [ 'verify_token', [ $obj->client, token             => 'my_id_token',
-                                                 expected_audience => 'my_id',
-                                                 expected_nonce    => 'my-nonce'] ],
-               'expected call to client->verify_token');
+    cmp_deeply([ $obj->client->next_call(4) ],
+               [ 'verify_jwt_token', [ $obj->client, token                        => 'my_id_token',
+                                                     expected_audience            => 'my_id',
+                                                     expected_authorized_party    => 'my_id',
+                                                     no_authorized_party_accepted => 1,
+                                                     max_token_age                => 30,
+                                                     expected_nonce               => 'my-nonce' ] ],
+               'expected call to client->verify_jwt_token');
 
     my ($state, $auth_data) = get_auth_data($obj);
     ok(!defined $state && !defined $auth_data,
@@ -561,13 +564,15 @@ sub test_refresh_token_ok {
                [ 'get_token', [ $obj->client, grant_type    => 'refresh_token',
                                               refresh_token => 'my_old_refresh_token' ] ],
                'expected call to client->get_token');
-    cmp_deeply([ $obj->client->next_call(6) ],
-               [ 'verify_token', [ $obj->client, token             => 'my_id_token',
-                                                 expected_subject  => 'my_subject',
-                                                 expected_audience => 'my_id',
-                                                 expected_nonce    => 'a1370',
-                                                 no_nonce_accepted => 1 ] ],
-               'expected call to client->verify_token');
+    cmp_deeply([ $obj->client->next_call(7) ],
+               [ 'verify_jwt_token', [ $obj->client, token                     => 'my_id_token',
+                                                     expected_subject  => 'my_subject',
+                                                     expected_audience         => 'my_id',
+                                                     expected_authorized_party => undef,
+                                                     max_token_age             => 30,
+                                                     expected_nonce            => 'a1370',
+                                                     no_nonce_accepted         => 1 ] ],
+               'expected call to client->verify_jwt_token');
   };
 
   subtest "refresh_token() with only access token" => sub {
@@ -661,7 +666,10 @@ sub test_refresh_token_ok {
     my %identity = (
       subject => 'my_subject',
       token   => 'my_old_id_token',
-      claims  => {},
+      claims  => {
+        nonce => 'b4632',
+        azp   => 'my_id',
+      },
     );
     store_identity($obj, \%identity);
 
@@ -697,11 +705,15 @@ sub test_refresh_token_ok {
                [ 'get_token', [ $obj->client, grant_type    => 'refresh_token',
                                               refresh_token => 'my_old_refresh_token' ] ],
                'expected call to client->get_token');
-    cmp_deeply([ $obj->client->next_call(6) ],
-               [ 'verify_token', [ $obj->client, token             => 'my_id_token',
-                                                 expected_subject  => 'my_subject',
-                                                 expected_audience => 'my_id' ] ],
-               'expected call to client->verify_token');
+    cmp_deeply([ $obj->client->next_call(7) ],
+               [ 'verify_jwt_token', [ $obj->client, token                     => 'my_id_token',
+                                                     expected_subject          => 'my_subject',
+                                                     expected_audience         => 'my_id',
+                                                     expected_authorized_party => 'my_id',
+                                                     max_token_age             => 30,
+                                                     expected_nonce            => 'b4632',
+                                                     no_nonce_accepted         => 1 ] ],
+               'expected call to client->verify_jwt_token');
   };
 }
 
@@ -870,9 +882,9 @@ sub test_verify_token_ok {
     cmp_deeply([ $obj->client->next_call() ],
                [ 'default_token_type', [ $obj->client ] ],
                'expected call to client->default_token_type');
-    cmp_deeply([ $obj->client->next_call() ],
-               [ 'verify_token', [ $obj->client, token => 'abcd123' ] ],
-               'expected call to client->verify_token');
+    cmp_deeply([ $obj->client->next_call(2) ],
+               [ 'verify_jwt_token', [ $obj->client, token => 'abcd123' ] ],
+               'expected call to client->verify_jwt_token');
   };
 
   subtest "verify_token() token is stored in stash" => sub {
@@ -945,6 +957,50 @@ sub test_verify_token_ok {
     cmp_deeply(get_access_token($obj),
                \%expected_access_token,
                'expected stored access token');
+  };
+
+  subtest "verify_token() using introspection" => sub {
+
+    # Given
+    my $obj = build_object(
+      config          => { token_validation_method => 'introspection' },
+      request_headers => { Authorization => 'bearer xxxxxxx' },
+      claims          => { active => 1,
+                           iss    => 'my_issuer',
+                           exp    => 2222222,
+                           aud    => ['my_id', 'other_id'],
+                           sub    => 'my_subject',
+                           scp    => [qw/scope1/] },
+    );
+
+    # When
+    my $access_token = $obj->verify_token();
+
+    # Then
+    my %expected_access_token = (
+      token         => 'xxxxxxx',
+      expires_at    => 2222222,
+      scopes        => [qw/scope1/],
+      claims => {
+        active => 1,
+        iss    => 'my_issuer',
+        exp    => 2222222,
+        aud    => ['my_id', 'other_id'],
+        sub    => 'my_subject',
+        scp    => [qw/scope1/],
+      },
+    );
+    isa_ok($access_token, 'OIDC::Client::AccessToken');
+    cmp_deeply($access_token,
+               noclass(\%expected_access_token),
+               'expected result');
+    cmp_deeply(get_access_token($obj),
+               \%expected_access_token,
+               'expected stored access token');
+    cmp_deeply([ $obj->client->next_call(3) ],
+               [ 'introspect_token', [ $obj->client, token => 'xxxxxxx',
+                                                     token_type_hint => 'access_token' ] ],
+               'expected call to client->introspect_token()');
   };
 
   subtest "verify_token() with mocked access token" => sub {
@@ -2130,8 +2186,12 @@ sub build_object {
   $mock_client->mock(id                  => sub { 'my_id' });
   $mock_client->mock(audience            => sub { $config{audience} || 'my_id' });
   $mock_client->mock(provider            => sub { 'my_provider' });
-  $mock_client->mock(verify_token        => sub { $params{claims} || \%default_claims });
+  $mock_client->mock(token_validation_method => sub { $config{token_validation_method} || 'jwt' });
+  $mock_client->mock(verify_jwt_token    => sub { $params{claims} || \%default_claims });
+  $mock_client->mock(introspect_token    => sub { $params{claims} || \%default_claims });
   $mock_client->mock(claim_mapping       => sub { $config{claim_mapping} || \%default_claim_mapping });
+  $mock_client->mock(expiration_leeway   => sub { $config{expiration_leeway} });
+  $mock_client->mock(max_id_token_age    => sub { 30 });
   $mock_client->mock(role_prefix         => sub { $config{role_prefix} || ''});
   $mock_client->mock(get_token           => sub { OIDC::Client::TokenResponse->new($params{token_response} || \%default_token_response) });
   $mock_client->mock(exchange_token      => sub { OIDC::Client::TokenResponse->new($params{exchanged_token_response} || %default_exchanged_token_response) });
