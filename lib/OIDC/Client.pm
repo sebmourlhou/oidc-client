@@ -376,6 +376,11 @@ sub _build_user_agent {
     $ua->transactor->name($user_agent);
   }
 
+  $ua->on(start => sub {
+    my ($ua, $tx) = @_;
+    $tx->req->headers->accept('application/json');
+  });
+
   return $ua;
 }
 
