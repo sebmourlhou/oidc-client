@@ -55,20 +55,19 @@ OIDC::Client - OpenID Connect Client
 
 =head1 DESCRIPTION
 
-Client module for OpenID Connect protocol.
+Client module for OpenID Connect and OAuth 2.0 protocols.
 
 Use this module directly from a batch or a simple script. For use from within
-an application, you should instead use the framework plugin :
+an application, you should instead use one of these framework plugins, which
+all use this distribution :
 
 =over 2
 
-=item Mojolicious
+=item * L<Mojolicious::Plugin::OIDC>
 
-L<Mojolicious::Plugin::OIDC>
+=item * L<Catalyst::Plugin::OIDC>
 
-=item Catalyst
-
-L<Catalyst::Plugin::OIDC>
+=item * L<Dancer2::Plugin::OIDC>
 
 =back
 
@@ -1703,7 +1702,11 @@ This program is free software, you can redistribute it and/or modify it under th
 
 =over 2
 
-=item * L<OIDC::Lite::Client::WebServer>
+=item * L<Mojolicious::Plugin::OIDC>
+
+=item * L<Catalyst::Plugin::OIDC>
+
+=item * L<Dancer2::Plugin::OIDC>
 
 =back
 
