@@ -83,6 +83,7 @@ sub mock_decode_jwt {
   my ($self, %params) = validated_hash(
     \@_,
     claims   => { isa => 'HashRef', optional => 1 },
+    header   => { isa => 'HashRef', default => {} },
     callback => { isa => 'CodeRef', optional => 1 },
   );
 
@@ -92,7 +93,7 @@ sub mock_decode_jwt {
     $mock_crypt_jwt->redefine('decode_jwt' => $cb);
   }
   elsif (my $claims = $params{claims}) {
-    $mock_crypt_jwt->redefine('decode_jwt' => $claims);
+    $mock_crypt_jwt->redefine('decode_jwt' => sub { ($params{header}, $claims) });
   }
   else {
     die 'mock_decode_jwt() : unexpected params';

@@ -245,12 +245,39 @@ sub test_get_token_ok {
                                                      expected_authorized_party    => 'my_id',
                                                      no_authorized_party_accepted => 1,
                                                      max_token_age                => 30,
-                                                     expected_nonce               => 'my-nonce' ] ],
+                                                     expected_nonce               => 'my-nonce',
+                                                     want_header                  => 1 ] ],
                'expected call to client->verify_jwt_token');
 
     my ($state, $auth_data) = get_auth_data($obj);
     ok(!defined $state && !defined $auth_data,
        'auth_data has been deleted');
+  };
+
+  subtest "get_token() - unexpected at_hash" => sub {
+
+    # Given
+    my $obj = build_object(request_params => {code  => 'my_code',
+                                              state => 'abc'},
+                           token_response => {id_token      => 'my_id_token',
+                                              access_token  => 'my_access_token',
+                                              token_type    => 'my_token_type',
+                                              expires_in    => 3600,
+                                              scope         => 'openid scope'},
+                           claims => {
+                             iss     => 'my_issuer',
+                             exp     => 222222,
+                             aud     => 'my_id',
+                             sub     => 'my_subject',
+                             roles   => [],
+                             at_hash => 'unexpectedAtHash',
+                           });
+    set_auth_data($obj, 'abc' => {nonce => 'my-nonce'});
+
+    # When - Then
+    throws_ok { $obj->get_token() }
+      'OIDC::Client::Error::TokenValidation',
+      'expected exception';
   };
 
   subtest "get_token() 'authorization_code' grant type with only ID token" => sub {
@@ -566,13 +593,51 @@ sub test_refresh_token_ok {
                'expected call to client->get_token');
     cmp_deeply([ $obj->client->next_call(7) ],
                [ 'verify_jwt_token', [ $obj->client, token                     => 'my_id_token',
-                                                     expected_subject  => 'my_subject',
+                                                     expected_subject          => 'my_subject',
                                                      expected_audience         => 'my_id',
                                                      expected_authorized_party => undef,
                                                      max_token_age             => 30,
                                                      expected_nonce            => 'a1370',
-                                                     no_nonce_accepted         => 1 ] ],
+                                                     no_nonce_accepted         => 1,
+                                                     want_header               => 1 ] ],
                'expected call to client->verify_jwt_token');
+  };
+
+  subtest "refresh_token() - unexpected at_hash" => sub {
+
+    # Given
+    my $obj = build_object(token_response => {id_token      => 'my_id_token',
+                                              access_token  => 'my_access_token',
+                                              refresh_token => 'my_refresh_token',
+                                              token_type    => 'my_token_type',
+                                              expires_in    => 3600,
+                                              scope         => 'openid scope'},
+                           claims => {
+                             iss     => 'my_issuer',
+                             exp     => 222222,
+                             aud     => 'my_id',
+                             sub     => 'my_subject',
+                             roles   => [],
+                             at_hash => 'unexpectedAtHash',
+                           });
+    my %access_token = (
+      token => 'my_old_access_token',
+    );
+    store_access_token($obj, \%access_token);
+    store_refresh_token($obj, 'my_old_refresh_token');
+    my %identity = (
+      subject => 'my_subject',
+      token   => 'my_old_id_token',
+      claims => {
+        nonce => 'a1370',
+      },
+    );
+    store_identity($obj, \%identity);
+
+    # When - Then
+    throws_ok { $obj->refresh_token() }
+      'OIDC::Client::Error::TokenValidation',
+      'expected exception';
   };
 
   subtest "refresh_token() with only access token" => sub {
@@ -712,7 +777,8 @@ sub test_refresh_token_ok {
                                                      expected_authorized_party => 'my_id',
                                                      max_token_age             => 30,
                                                      expected_nonce            => 'b4632',
-                                                     no_nonce_accepted         => 1 ] ],
+                                                     no_nonce_accepted         => 1,
+                                                     want_header               => 1 ] ],
                'expected call to client->verify_jwt_token');
   };
 }
@@ -2155,6 +2221,7 @@ sub build_object {
     sub   => 'DOEJ',
     roles => [qw/role1 role2 role3/],
   );
+  my %default_header = (alg => 'HS256');
   my %default_claims = (
     iss   => 'my_issuer',
     exp   => 1111111,
@@ -2187,7 +2254,7 @@ sub build_object {
   $mock_client->mock(audience            => sub { $config{audience} || 'my_id' });
   $mock_client->mock(provider            => sub { 'my_provider' });
   $mock_client->mock(token_validation_method => sub { $config{token_validation_method} || 'jwt' });
-  $mock_client->mock(verify_jwt_token    => sub { $params{claims} || \%default_claims });
+  $mock_client->mock(verify_jwt_token    => sub { ($params{header} || \%default_header, $params{claims} || \%default_claims) });
   $mock_client->mock(introspect_token    => sub { $params{claims} || \%default_claims });
   $mock_client->mock(claim_mapping       => sub { $config{claim_mapping} || \%default_claim_mapping });
   $mock_client->mock(expiration_leeway   => sub { $config{expiration_leeway} });

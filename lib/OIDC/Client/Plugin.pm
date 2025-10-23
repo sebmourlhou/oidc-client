@@ -234,8 +234,11 @@ to the state parameter sent with the authorize URL.
 
 From a code received from the provider, executes a request to get the token(s).
 
-Checks the ID token if present and stores the token(s) in the session, stash
-or cache depending on your configured C<store_mode> (see L<OIDC::Client::Config>).
+Checks the ID token if present.
+Checks the access token's C<at_hash> against the ID token's C<at_hash> claim if present.
+
+Stores the token(s) in the session, stash or cache depending on your configured
+C<store_mode> (see L<OIDC::Client::Config>).
 
 Returns the stored L<OIDC::Client::Identity> object.
 
@@ -279,18 +282,21 @@ sub get_token {
     $token_response = $self->client->get_token();
   }
 
+  my ($id_token_header, $id_token_claims);
+
   if (my $id_token = $token_response->id_token) {
-    my $claims_id_token = $self->client->verify_jwt_token(
+    ($id_token_header, $id_token_claims) = $self->client->verify_jwt_token(
       token                        => $id_token,
       expected_audience            => $self->client->id,
       expected_authorized_party    => $self->client->id,
       no_authorized_party_accepted => 1,
       max_token_age                => $self->client->max_id_token_age,
       $auth_data ? (expected_nonce => $auth_data->{nonce}) : (),
+      want_header                  => 1,
     );
     $self->_store_identity(
       id_token => $id_token,
-      claims   => $claims_id_token,
+      claims   => $id_token_claims,
     );
     $self->log_msg(debug => "OIDC: identity has been stored");
   }
@@ -302,6 +308,8 @@ sub get_token {
 
   if ($token_response->access_token) {
     my $access_token = build_access_token_from_token_response($token_response);
+    $access_token->verify_at_hash($id_token_claims->{at_hash}, $id_token_header->{alg})
+      if $id_token_claims;
     $self->store_access_token($access_token);
     $self->log_msg(debug => "OIDC: access token has been stored");
   }
@@ -322,6 +330,9 @@ sub get_token {
 Refreshes an access and/or ID token (usually because it has expired) for the default audience
 (token for the current application) or for the audience corresponding to a given alias
 (exchanged token for another application).
+
+Checks the ID token if it has been renewed.
+Checks the access token's C<at_hash> against the ID token's C<at_hash> claim if present.
 
 Stores the renewed token(s) and returns the new L<OIDC::Client::AccessToken> object.
 
@@ -361,31 +372,37 @@ sub refresh_token {
     $refresh_scope ? (refresh_scope => $refresh_scope) : (),
   );
 
+  my ($id_token_header, $id_token_claims);
+
   if (my $id_token = $token_response->id_token) {
     my $identity = $self->get_stored_identity()
       or OIDC::Client::Error->throw("OIDC: no identity has been stored");
 
     my $expected_subject = $identity->subject;
     my $expected_nonce   = $identity->claims->{nonce};
-    my $claims_id_token = $self->client->verify_jwt_token(
+    ($id_token_header, $id_token_claims) = $self->client->verify_jwt_token(
       token                     => $id_token,
       expected_subject          => $expected_subject,
       expected_audience         => $self->client->id,
       expected_authorized_party => $identity->claims->{azp},
       max_token_age             => $self->client->max_id_token_age,
-      $expected_nonce ? (expected_nonce    => $expected_nonce,
-                         no_nonce_accepted => 1)
-                      : (),
+      $expected_nonce
+        ? (expected_nonce       => $expected_nonce,
+           no_nonce_accepted    => 1)
+        : (),
+      want_header               => 1,
     );
     $self->_store_identity(
       id_token => $id_token,
-      claims   => $claims_id_token,
+      claims   => $id_token_claims,
     );
     $self->log_msg(debug => "OIDC: identity has been renewed and stored");
   }
 
   if ($token_response->access_token) {
     my $access_token = build_access_token_from_token_response($token_response);
+    $access_token->verify_at_hash($id_token_claims->{at_hash}, $id_token_header->{alg})
+      if $id_token_claims;
     $self->store_access_token($access_token, $audience_alias);
     $self->log_msg(debug => "OIDC: access token has been renewed and stored");
   }

@@ -73,10 +73,10 @@ all use this distribution :
 
 =cut
 
-enum 'StoreMode'    => [qw/session stash cache/];
-enum 'ResponseMode' => [qw/query form_post/];
-enum 'GrantType'    => [qw/authorization_code client_credentials password refresh_token/];
-enum 'AuthMethod'   => [qw/client_secret_basic client_secret_post client_secret_jwt private_key_jwt none/];
+enum 'StoreMode'             => [qw/session stash cache/];
+enum 'ResponseMode'          => [qw/query form_post/];
+enum 'GrantType'             => [qw/authorization_code client_credentials password refresh_token/];
+enum 'ClientAuthMethod'      => [qw/client_secret_basic client_secret_post client_secret_jwt private_key_jwt none/];
 enum 'TokenValidationMethod' => [qw/jwt introspection/];
 
 Readonly my %DEFAULT_JWT_DECODING_OPTIONS => (
@@ -231,14 +231,14 @@ has 'token_endpoint_grant_type' => (
 
 has 'client_auth_method' => (
   is      => 'ro',
-  isa     => 'Maybe[AuthMethod]',
+  isa     => 'Maybe[ClientAuthMethod]',
   lazy    => 1,
   default => sub { shift->config->{client_auth_method} },
 );
 
 has 'token_endpoint_auth_method' => (
   is      => 'ro',
-  isa     => 'AuthMethod',
+  isa     => 'ClientAuthMethod',
   lazy    => 1,
   default => sub { my $self = shift;
                    $self->config->{token_endpoint_auth_method}
@@ -248,7 +248,7 @@ has 'token_endpoint_auth_method' => (
 
 has 'introspection_endpoint_auth_method' => (
   is      => 'ro',
-  isa     => 'AuthMethod',
+  isa     => 'ClientAuthMethod',
   lazy    => 1,
   default => sub { my $self = shift;
                    $self->config->{introspection_endpoint_auth_method}
@@ -713,7 +713,7 @@ sub get_token {
   my (%params) = validated_hash(
     \@_,
     grant_type    => { isa => 'GrantType', optional => 1 },
-    auth_method   => { isa => 'AuthMethod', optional => 1 },
+    auth_method   => { isa => 'ClientAuthMethod', optional => 1 },
     code          => { isa => 'Str', optional => 1 },
     redirect_uri  => { isa => 'Str', optional => 1 },
     username      => { isa => 'Str', optional => 1 },
@@ -874,6 +874,16 @@ When the C<expected_nonce> parameter is defined, prevents an exception from bein
 thrown if the JWT token does not contain a C<nonce> claim.
 Default to false.
 
+=item want_header
+
+  my ($header, $claims) = $client->verify_jwt_token(
+    token       => $token,
+    want_header => 1,
+  );
+
+Defines whether you want the decoded header to be returned by this method.
+False by default.
+
 =back
 
 =cut
@@ -890,10 +900,11 @@ sub verify_jwt_token {
     expected_nonce               => { isa => 'Str', optional => 1 },
     no_nonce_accepted            => { isa => 'Bool', default => 0 },
     max_token_age                => { isa => 'Int', optional => 1 },
+    want_header                  => { isa => 'Bool', default => 0 },
   );
 
   # checks the signature and the timestamps
-  my $claims = $self->_decode_token($params{token});
+  my ($header, $claims) = $self->_decode_token($params{token});
 
   # checks the issuer
   $self->_validate_issuer($claims->{iss});
@@ -925,7 +936,7 @@ sub verify_jwt_token {
     $self->_validate_age($claims->{iat}, $max_token_age);
   }
 
-  return $claims;
+  return $params{want_header} ? ($header, $claims) : $claims;
 }
 
 # DEPRECATED!
@@ -933,7 +944,7 @@ sub verify_token {
   my ($self, %params) = @_;
   warnings::warnif('deprecated',
                    'OIDC::Client::verify_token() is deprecated in favor of OIDC::Client::verify_jwt_token()');
-  $self->verify_jwt_token(%params);
+  return $self->verify_jwt_token(%params);
 }
 
 
@@ -1014,7 +1025,7 @@ sub introspect_token {
     \@_,
     token             => { isa => 'Str', optional => 0 },
     token_type_hint   => { isa => enum([qw/access_token refresh_token/]), optional => 1 },
-    auth_method       => { isa => 'AuthMethod', optional => 1 },
+    auth_method       => { isa => 'ClientAuthMethod', optional => 1 },
     expected_audience => { isa => 'Str', optional => 1 },
   );
 
@@ -1220,7 +1231,7 @@ sub exchange_token {
     token       => { isa => 'Str', optional => 0 },
     audience    => { isa => 'Str', optional => 0 },
     scope       => { isa => 'Str', optional => 1 },
-    auth_method => { isa => 'AuthMethod', optional => 1 },
+    auth_method => { isa => 'ClientAuthMethod', optional => 1 },
   );
 
   my $token_url = $self->provider_metadata->{token_url}
@@ -1453,7 +1464,9 @@ sub _decode_token {
   return try {
     Crypt::JWT::decode_jwt(%{ $self->jwt_decoding_options },
                            token    => $token,
-                           kid_keys => $self->kid_keys);
+                           kid_keys => $self->kid_keys,
+                           decode_payload => 1,
+                           decode_header  => 1);
   }
   catch {
     my $e = $_;
@@ -1524,9 +1537,9 @@ sub _check_configuration {
     authorize_endpoint_extra_params  => { isa => 'HashRef', optional => 1 },
     token_validation_method          => { isa => 'TokenValidationMethod', optional => 1 },
     token_endpoint_grant_type        => { isa => 'GrantType', optional => 1 },
-    client_auth_method               => { isa => 'AuthMethod', optional => 1 },
-    token_endpoint_auth_method       => { isa => 'AuthMethod', optional => 1 },
-    introspection_endpoint_auth_method => { isa => 'AuthMethod', optional => 1 },
+    client_auth_method               => { isa => 'ClientAuthMethod', optional => 1 },
+    token_endpoint_auth_method       => { isa => 'ClientAuthMethod', optional => 1 },
+    introspection_endpoint_auth_method => { isa => 'ClientAuthMethod', optional => 1 },
     client_assertion_lifetime        => { isa => 'Int', optional => 1 },
     client_assertion_audience        => { isa => 'Str', optional => 1 },
     username                         => { isa => 'Str', optional => 1 },

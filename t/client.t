@@ -1841,6 +1841,9 @@ sub test_verify_jwt_token_renewing_kid_keys {
       },
     );
 
+    my %header = (
+      alg => 'abc',
+    );
     my %claims = (
       iss => 'my_issuer',
       aud => 'my_client_id',
@@ -1851,23 +1854,24 @@ sub test_verify_jwt_token_renewing_kid_keys {
       callback => sub {
         state $i = 1;
         croak('JWE: kid_keys lookup failed') if $i++ == 1;
-        return \%claims;
+        return (\%header, \%claims);
       }
     );
 
     # When
-    my $token_claims = $client->verify_jwt_token(
-      token => 'my_token',
+    my ($token_header, $token_claims) = $client->verify_jwt_token(
+      token       => 'my_token',
+      want_header => 1,
     );
 
     # Then
     cmp_deeply($token_claims, \%claims,
+               'expected header');
+    cmp_deeply($token_claims, \%claims,
                'expected claims');
-
     cmp_deeply([ $test->mocked_user_agent->next_call() ],
                [ 'get', [ $test->mocked_user_agent, 'my_jwks_url' ] ],
                'expected call to renew kid keys');
-
     cmp_deeply($client->kid_keys, { keys => ['a', 'b', 'c'] },
                'kid keys have been updated');
   };
