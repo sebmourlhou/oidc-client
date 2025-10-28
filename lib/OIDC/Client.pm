@@ -40,10 +40,14 @@ OIDC::Client - OpenID Connect Client
     log    => $app->log,
   );
 
-  my $token_response = $client->get_token(
-    code         => $code,
-    redirect_uri => q{http://yourapp/oidc/callback},
-  );
+  my $authorize_url  = $client->auth_url();
+  my $token_response = $client->get_token(code => $code);
+  my $claims         = $client->verify_jwt_token(token => $token);
+  my $claims         = $client->introspect_token(token => $token);
+  my $userinfo       = $client->get_userinfo(access_token => $token);
+  my $token_response = $client->exchange_token(token => $token, audience => $audience);
+  my $ua             = $client->build_api_useragent();
+  my $logout_url     = $client->logout_url();
 
 =head1 DESCRIPTION
 
@@ -562,7 +566,12 @@ sub verify_jwt_token {
   return $params{want_header} ? ($header, $claims) : $claims;
 }
 
-# DEPRECATED!
+=head2 verify_token( %args )
+
+This method is DEPRECATED! Instead, use L</"verify_jwt_token( %args )">.
+
+=cut
+
 sub verify_token {
   my ($self, %params) = @_;
   warnings::warnif('deprecated',
@@ -809,8 +818,6 @@ Specifies the desired scope of the requested token.
 Must be a string with space separators.
 Optional.
 
-=back
-
 =item auth_method
 
 Specifies how the client authenticates with the identity provider.
@@ -844,6 +851,8 @@ none
 Can also be specified in the C<token_endpoint_auth_method> configuration entry
 or the global C<client_auth_method> configuration entry.
 Default to C<client_secret_basic>.
+
+=back
 
 =cut
 
@@ -882,32 +891,14 @@ sub exchange_token {
 
 =head2 build_api_useragent( %args )
 
-  my $ua = $client->build_api_useragent(
-    token      => $token,
-    token_type => $token_type,
-  );
+  my $ua = $client->build_api_useragent();
 
-Builds a web client (L<Mojo::UserAgent> object) that will have the given token
-in the authorization header for each request.
+Invokes the L</"get_token( %args )"> method and builds a web client (L<Mojo::UserAgent>
+object) that will have the given access token in the authorization header for each request.
 
-The optional parameters are:
-
-=over 2
-
-=item token
-
-Content of the access token to send to the other application.
-
-If it is not passed as parameter, the L</"get_token( %args )"> method  is invoked
-without any parameter to retrieve the token from the provider.
-This can be useful if the client is configured for a password grant
-or a client credentials grant.
-
-=item token_type
-
-Token type. Default to "Bearer".
-
-=back
+This method can be useful if the client is configured for a password grant
+or a client credentials grant and you simply want to build a web client to call
+an API protected by OAuth2.
 
 =cut
 
@@ -915,8 +906,8 @@ sub build_api_useragent {
   my $self = shift;
   my (%params) = validated_hash(
     \@_,
-    token      => { isa => 'Str', optional => 1 },
-    token_type => { isa => 'Maybe[Str]', optional => 1 },
+    token      => { isa => 'Str', optional => 1 },         # DEPRECATED!
+    token_type => { isa => 'Maybe[Str]', optional => 1 },  # DEPRECATED!
   );
 
   if (my $token_value = $params{token}) {
