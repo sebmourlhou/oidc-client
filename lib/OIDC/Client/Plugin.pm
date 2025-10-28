@@ -6,9 +6,7 @@ use Moose::Util::TypeConstraints;
 use MooseX::Params::Validate;
 use namespace::autoclean;
 
-use Readonly;
 use Carp qw(croak);
-use List::Util qw(any);
 use Module::Load qw(load);
 use Mojo::URL;
 use Try::Tiny;
@@ -40,8 +38,6 @@ It contains all the methods available in the application.
 =cut
 
 enum 'RedirectType' => [qw/login logout/];
-
-Readonly my %DEFAULT_CHI_CONFIG => (driver => 'Memory', global => 0);
 
 has 'request_params' => (
   is       => 'ro',
@@ -127,10 +123,8 @@ sub _build_redirect_uri_from_path {
   my $self = shift;
   my ($redirect_type) = pos_validated_list(\@_, { isa => 'RedirectType', optional => 0 });
 
-  my $config_entry = $redirect_type eq 'login' ? 'signin_redirect_path'
-                                               : 'logout_redirect_path';
-
-  my $redirect_path = $self->client->config->{$config_entry}
+  my $redirect_path = $redirect_type eq 'login' ? $self->client->signin_redirect_path
+                                                : $self->client->logout_redirect_path
     or return;
 
   my $base = Mojo::URL->new($self->base_url);
@@ -141,7 +135,7 @@ sub _build_redirect_uri_from_path {
 sub _build_audience_cache {
   my $self = shift;
 
-  my $cache_config = $self->client->config->{cache_config} || \%DEFAULT_CHI_CONFIG;
+  my $cache_config = $self->client->cache_config;
   my $provider     = $self->client->provider;
 
   return CHI->new(%$cache_config, namespace => "OIDC-${provider}-Audience");
@@ -300,7 +294,7 @@ sub get_token {
     );
     $self->log_msg(debug => "OIDC: identity has been stored");
   }
-  elsif (($self->client->config->{scope} || '') =~ /\bopenid\b/) {
+  elsif (($self->client->scope // '') =~ /\bopenid\b/) {
     OIDC::Client::Error::Authentication->throw(
       "OIDC: no ID token returned by the provider ?"
     );
@@ -364,7 +358,7 @@ sub refresh_token {
     or OIDC::Client::Error->throw("OIDC: no refresh token has been stored");
 
   my $refresh_scope = $audience_alias ? undef
-                                      : $self->client->config->{refresh_scope};
+                                      : $self->client->refresh_scope;
 
   my $token_response = $self->client->get_token(
     grant_type    => 'refresh_token',
@@ -484,7 +478,7 @@ by this method.
 sub verify_token {
   my $self = shift;
 
-  if ($self->is_base_url_local and my $mocked_access_token = $self->client->config->{mocked_access_token}) {
+  if ($self->is_base_url_local and my $mocked_access_token = $self->client->mocked_access_token) {
     return OIDC::Client::AccessToken->new($mocked_access_token);
   }
 
@@ -541,7 +535,7 @@ the C<mocked_userinfo> entry (hashref).
 sub get_userinfo {
   my $self = shift;
 
-  if ($self->is_base_url_local and my $mocked_userinfo = $self->client->config->{mocked_userinfo}) {
+  if ($self->is_base_url_local and my $mocked_userinfo = $self->client->mocked_userinfo) {
     return $mocked_userinfo;
   }
 
@@ -722,6 +716,7 @@ The optional hash parameters are:
 =item with_id_token
 
 Specifies whether the stored id token should be sent to the provider.
+Default to the C<logout_with_id_token> configuration entry or true by default.
 
 =item target_url
 
@@ -751,7 +746,7 @@ sub redirect_to_logout {
   my $self = shift;
   my %params = validated_hash(
     \@_,
-    with_id_token            => { isa => 'Bool', default => 1 },
+    with_id_token            => { isa => 'Bool', optional => 1 },
     target_url               => { isa => 'Str', optional => 1 },
     post_logout_redirect_uri => { isa => 'Str', optional => 1 },
     extra_params             => { isa => 'HashRef', optional => 1 },
@@ -764,7 +759,7 @@ sub redirect_to_logout {
     state => $state,
   );
 
-  if ($params{with_id_token} // $self->client->config->{logout_with_id_token}) {
+  if ($params{with_id_token} // $self->client->logout_with_id_token // 1) {
     my $identity = $self->get_stored_identity()
       or OIDC::Client::Error->throw("OIDC: no identity has been stored");
     $args{id_token} = $identity->token;
@@ -921,7 +916,7 @@ be returned by this method.
 sub get_stored_identity {
   my $self = shift;
 
-  if ($self->is_base_url_local and my $mocked_identity = $self->client->config->{mocked_identity}) {
+  if ($self->is_base_url_local and my $mocked_identity = $self->client->mocked_identity) {
     return OIDC::Client::Identity->new($mocked_identity);
   }
 
@@ -951,7 +946,7 @@ sub _store_identity {
     token   => $params{id_token},
   );
 
-  my $expires_in = $self->client->config->{identity_expires_in};
+  my $expires_in = $self->client->identity_expires_in;
   if (defined $expires_in) {
     if ($expires_in != 0) {
       $identity{expires_at} = time + $expires_in;
@@ -999,7 +994,7 @@ sub get_stored_access_token {
   my $audience = $audience_alias ? $self->_get_audience_from_alias($audience_alias)
                                  : $self->client->audience;
 
-  if ($self->is_base_url_local and my $mocked_access_token = $self->client->config->{mocked_access_token}) {
+  if ($self->is_base_url_local and my $mocked_access_token = $self->client->mocked_access_token) {
     return OIDC::Client::AccessToken->new($mocked_access_token);
   }
 

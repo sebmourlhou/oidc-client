@@ -5,7 +5,7 @@ use namespace::autoclean;
 use feature 'signatures';
 no warnings 'experimental::signatures';
 use Carp qw(croak);
-use List::Util qw(first any);
+use List::Util qw(any);
 use OIDC::Client::Error::TokenValidation;
 
 =encoding utf8

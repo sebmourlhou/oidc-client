@@ -77,7 +77,7 @@ sub _check_configuration ($self) {
     password                           => { isa => 'Str', optional => 1 },
     logout_redirect_path               => { isa => 'Str', optional => 1 },
     post_logout_redirect_uri           => { isa => 'Str', optional => 1 },
-    logout_with_id_token               => { isa => 'Str', optional => 1 },
+    logout_with_id_token               => { isa => 'Bool', optional => 1 },
     logout_extra_params                => { isa => 'HashRef', optional => 1 },
     cache_config                       => { isa => 'HashRef', optional => 1 },
     mocked_identity                    => { isa => 'HashRef', optional => 1 },

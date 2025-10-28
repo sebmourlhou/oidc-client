@@ -1459,7 +1459,7 @@ sub test_redirect_to_logout_with_id_token {
     is($obj->redirect->(), 'my_logout_url',
        'expected redirect');
 
-    cmp_deeply([ $obj->client->next_call(6) ],
+    cmp_deeply([ $obj->client->next_call(7) ],
                [ 'logout_url', bag($obj->client, id_token                 => 'my_id_token',
                                                  post_logout_redirect_uri => 'my_logout_redirect_uri',
                                                  state                    => $state,
@@ -2257,7 +2257,6 @@ sub build_object {
   $mock_client->mock(verify_jwt_token    => sub { ($params{header} || \%default_header, $params{claims} || \%default_claims) });
   $mock_client->mock(introspect_token    => sub { $params{claims} || \%default_claims });
   $mock_client->mock(claim_mapping       => sub { $config{claim_mapping} || \%default_claim_mapping });
-  $mock_client->mock(expiration_leeway   => sub { $config{expiration_leeway} });
   $mock_client->mock(max_id_token_age    => sub { 30 });
   $mock_client->mock(role_prefix         => sub { $config{role_prefix} || ''});
   $mock_client->mock(get_token           => sub { OIDC::Client::TokenResponse->new($params{token_response} || \%default_token_response) });
@@ -2269,6 +2268,7 @@ sub build_object {
   $mock_client->mock(token_endpoint_grant_type => sub { $config{token_endpoint_grant_type} || 'authorization_code' });
   $mock_client->mock(store_mode          => sub { $config{store_mode} || 'session' });
   $mock_client->mock(generate_uuid_string => sub { 'fake_uuid' });
+  $mock_client->mock(cache_config         => sub { { driver => 'Memory', global => 0 } });
   $mock_client->mock(get_claim_value => sub {
     my ($self, %params) = @_;
     return $params{claims}->{$self->claim_mapping->{$params{name}}};
@@ -2277,6 +2277,11 @@ sub build_object {
     my (undef, $alias) = @_;
     return $params{config}->{audience_alias}{$alias}{audience};
   });
+  foreach my $attr_name (qw( signin_redirect_path logout_redirect_path scope refresh_scope
+                             expiration_leeway identity_expires_in logout_with_id_token
+                             mocked_identity mocked_access_token mocked_userinfo )) {
+    $mock_client->mock($attr_name => sub { $config{$attr_name} });
+  }
 
   my $redirect;
 

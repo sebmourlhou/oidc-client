@@ -584,18 +584,16 @@ sub test_auth_url_returning_mojo_url {
 
     # Given
     my $client = $class->new(
-      log      => $log,
-      kid_keys => {},
-      config => {
-        provider            => 'my_provider',
-        id                  => 'my_client_id',
-        secret              => 'my_client_secret',
-        signin_redirect_uri => 'my_signin_redirect_uri',
-        scope               => 'my_scope',
-        audience            => 'my_audience',
-        authorize_endpoint_extra_params => { other_param => 'my_other_param' },
-      },
-      provider_metadata => { authorize_url => 'HTtps://my-provider/authorize' },
+      log                             => $log,
+      kid_keys                        => {},
+      provider                        => 'my_provider',
+      id                              => 'my_client_id',
+      secret                          => 'my_client_secret',
+      signin_redirect_uri             => 'my_signin_redirect_uri',
+      scope                           => 'my_scope',
+      audience                        => 'my_audience',
+      authorize_endpoint_extra_params => { other_param => 'my_other_param' },
+      provider_metadata               => { authorize_url => 'HTtps://my-provider/authorize' },
     );
 
     # When
@@ -709,19 +707,17 @@ sub test_get_token_authorization_code {
 
     # Given
     my $client = $class->new(
-      log                   => $log,
-      user_agent            => $test->mocked_user_agent,
-      token_response_parser => $test->mocked_token_response_parser,
-      kid_keys => {},
-      config => {
-        provider                   => 'my_provider',
-        id                         => 'my_client_id',
-        secret                     => 'my_client_secret',
-        token_endpoint_grant_type  => 'authorization_code',
-        signin_redirect_uri        => 'my_signin_redirect_uri',
-        audience                   => 'my_audience',
-      },
-      provider_metadata => { token_url => 'https://my-provider/token' },
+      log                        => $log,
+      user_agent                 => $test->mocked_user_agent,
+      token_response_parser      => $test->mocked_token_response_parser,
+      kid_keys                   => {},
+      provider                   => 'my_provider',
+      id                         => 'my_client_id',
+      secret                     => 'my_client_secret',
+      token_endpoint_grant_type  => 'authorization_code',
+      signin_redirect_uri        => 'my_signin_redirect_uri',
+      audience                   => 'my_audience',
+      provider_metadata          => { token_url => 'https://my-provider/token' },
     );
 
     # When
