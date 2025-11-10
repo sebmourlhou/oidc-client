@@ -622,8 +622,10 @@ sub build_user_from_claims {
 
   return $user_class->new(
     (
-      map { $_ => $claims->{ $mapping->{$_} } }
-      grep { exists $claims->{ $mapping->{$_} } }
+      map {
+        my $val = $self->client->get_claim_value(name => $_, claims => $claims, optional => 1);
+        defined $val ? ($_ => $val) : ();
+      }
       keys %$mapping
     ),
     defined $role_prefix ? (role_prefix => $role_prefix) : (),

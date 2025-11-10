@@ -1042,12 +1042,22 @@ sub get_claim_value {
   my $claim_key = $self->claim_mapping->{$params{name}}
     or croak("OIDC: no claim key in config for name '$params{name}'");
 
-  unless ($params{optional}) {
-    exists $params{claims}->{$claim_key}
-      or croak("OIDC: the '$claim_key' claim is not present");
+  my @keys = split /\./, $claim_key;
+
+  my $claim_value = $params{claims};
+  foreach my $key (@keys) {
+    if (ref $claim_value eq 'HASH' && exists $claim_value->{$key}) {
+      $claim_value = $claim_value->{$key};
+    }
+    elsif ($params{optional}) {
+      return undef;
+    }
+    else {
+      croak("OIDC: the '$key' claim is not present");
+    }
   }
 
-  return $params{claims}->{$claim_key};
+  return $claim_value;
 }
 
 

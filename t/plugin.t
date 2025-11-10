@@ -1316,7 +1316,7 @@ sub test_build_user_from_identity {
       roles     => 'roles',
     );
     my $obj = build_object(
-      config  => { claim_mapping => \%claim_mapping },
+      config => { claim_mapping => \%claim_mapping },
     );
     my %identity = (
       subject    => 'DOEJ',
