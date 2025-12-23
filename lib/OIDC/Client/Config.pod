@@ -279,9 +279,9 @@ Encoding algorithm used
 =head2 provider."provider".claim_mapping
 
 Used to map token claims or user information to an L<OIDC::Client::User> object
-when calling the L<OIDC::Client::Plugin/build_user_from_userinfo( $user_class )>,
-L<OIDC::Client::Plugin/build_user_from_claims( $claims, $user_class )> or
-L<OIDC::Client::Plugin/build_user_from_identity( $user_class )> methods.
+when calling the L<OIDC::Client::Plugin/"build_user_from_userinfo( $user_class )">,
+L<OIDC::Client::Plugin/"build_user_from_claims( $claims, $user_class )"> or
+L<OIDC::Client::Plugin/"build_user_from_identity( $user_class )"> methods.
 
 The keys are the user attributes and the values are the keys of the claims.
 If needed, to walk down the data tree of a claim, use the dot character.
