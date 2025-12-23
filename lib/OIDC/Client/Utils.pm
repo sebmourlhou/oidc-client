@@ -63,7 +63,7 @@ sub reach_data {
       $data_tree = $data_tree->{$key};
     }
     elsif ($optional) {
-      return undef;
+      return;
     }
     else {
       croak("OIDC: the '$key' key is not present");
@@ -126,7 +126,7 @@ sub delete_data {
   my $key_to_delete = pop @path_to_iterate;
 
   foreach my $key (@path_to_iterate) {
-    return undef unless defined $data_tree->{$key};
+    return unless defined $data_tree->{$key};
     $data_tree = $data_tree->{$key};
     ref $data_tree eq 'HASH' or croak("OIDC: the value of the '$key' key is not a hash reference");
   }
