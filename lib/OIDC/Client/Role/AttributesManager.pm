@@ -57,6 +57,7 @@ has 'config' => (
 );
 
 foreach my $attr_name (qw( private_key_file private_jwk_file role_prefix client_assertion_audience
+                           tls_client_key_file tls_client_cert_file tls_ca_file
                            signin_redirect_path signin_redirect_uri logout_redirect_path post_logout_redirect_uri
                            scope refresh_scope well_known_url ))  {
   has $attr_name => (
@@ -123,6 +124,13 @@ has 'secret' => (
   isa     => 'Maybe[Str]',
   lazy    => 1,
   builder => '_build_secret',
+);
+
+has 'tls_client_key_passphrase' => (
+  is      => 'rw',
+  isa     => 'Maybe[Str]',
+  lazy    => 1,
+  builder => '_build_tls_client_key_passphrase',
 );
 
 has 'private_key' => (
@@ -322,13 +330,13 @@ sub _build_id ($self) {
 }
 
 sub _build_secret ($self) {
-  my $secret = $self->config->{secret};
-  unless ($secret) {
-    my $provider = $self->provider;
-    $secret = $ENV{uc "OIDC_${provider}_SECRET"};
-  }
-  $secret or croak("OIDC: no secret configured or set up in environment");
+  my $secret = $self->_get_value_from_config_or_envvar('secret')
+    or croak("OIDC: no secret configured or set up in environment");
   return $secret;
+}
+
+sub _build_tls_client_key_passphrase ($self) {
+  return $self->_get_value_from_config_or_envvar('tls_client_key_passphrase');
 }
 
 sub _build_private_key ($self) {
@@ -371,6 +379,33 @@ sub _build_user_agent ($self) {
     $tx->req->headers->accept('application/json');
   });
 
+  if ($self->tls_client_cert_file && $self->tls_client_key_file) {
+    my %tls_options = (
+      SSL_cert_file => $self->tls_client_cert_file,
+      SSL_key_file  => $self->tls_client_key_file,
+    );
+    if ($self->tls_ca_file) {
+      $tls_options{SSL_ca_file} = $self->tls_ca_file;
+    }
+    if (defined $self->tls_client_key_passphrase) {
+      $tls_options{SSL_passwd_cb} = sub {
+        return $self->tls_client_key_passphrase;
+      };
+    }
+
+    if ($ua->can('tls_options')) {
+      $ua->tls_options(\%tls_options);
+    }
+    elsif (exists $tls_options{SSL_passwd_cb}) {
+      croak('OIDC: SSL_passwd_cb requires Mojolicious 9.31 or newer');
+    }
+    else {
+      $ua->cert($tls_options{SSL_cert_file});
+      $ua->key($tls_options{SSL_key_file});
+      $ua->ca($tls_options{SSL_ca_file}) if exists $tls_options{SSL_ca_file};
+    }
+  }
+
   return $ua;
 }
 
@@ -405,9 +440,7 @@ sub _build_kid_keys ($self) {
   return $self->response_parser->parse($res);
 }
 
-sub _get_provider_metadata {
-  my ($self, $well_known_url) = @_;
-
+sub _get_provider_metadata ($self, $well_known_url) {
   my $provider = $self->provider;
   $self->log_msg(info => "OIDC/$provider: fetching OpenID configuration from $well_known_url");
 
@@ -423,6 +456,16 @@ sub _get_provider_metadata {
     userinfo_url      => $provider_config->{userinfo_endpoint},
     jwks_url          => $provider_config->{jwks_uri},
   };
+}
+
+sub _get_value_from_config_or_envvar ($self, $key) {
+  my $value = $self->config->{$key};
+  unless (defined $value) {
+    my $provider = $self->provider;
+    $value = $ENV{uc "OIDC_${provider}_${key}"};
+  }
+
+  return $value;
 }
 
 1;
