@@ -162,8 +162,60 @@ sub test_build_secret {
   };
 }
 
-sub test_user_agent {
-  subtest "user_agent" => sub {
+sub test_tls_client_key_passphrase_attribute {
+  subtest "tls_client_key_passphrase from config" => sub {
+    # Given
+    my %config = (
+      id                        => 'my_client_id',
+      provider                  => 'my_provider',
+      tls_client_key_passphrase => 'my_passphrase_from_config',
+    );
+    my $client = $class->new(
+      log    => $log,
+      config => \%config,
+    );
+
+    # When - Then
+    is($client->tls_client_key_passphrase, 'my_passphrase_from_config',
+       'from config');
+  };
+
+  subtest "tls_client_key_passphrase from ENV variable" => sub {
+    # Given
+    my %config = (
+      id       => 'my_client_id',
+      provider => 'my_provider',
+    );
+    my $client = $class->new(
+      log    => $log,
+      config => \%config,
+    );
+    local $ENV{OIDC_MY_PROVIDER_TLS_CLIENT_KEY_PASSPHRASE} = 'my_passphrase_from_envvar';
+
+    # When - Then
+    is($client->tls_client_key_passphrase, 'my_passphrase_from_envvar',
+       'from environment variable');
+  };
+
+  subtest "no tls_client_key_passphrase from config or environment variable" => sub {
+    # Given
+    my %config = (
+      id       => 'my_client_id',
+      provider => 'my_provider',
+    );
+    my $client = $class->new(
+      log    => $log,
+      config => \%config,
+    );
+
+    # When - Then
+    is($client->tls_client_key_passphrase, undef,
+       'tls_client_key_passphrase is undefined');
+  };
+}
+
+sub test_user_agent_attribute {
+  subtest "user_agent name" => sub {
 
     # Given
     my %config = (
@@ -182,7 +234,44 @@ sub test_user_agent {
 
     # Then
     is($client->user_agent->transactor->name, 'my_user_agent',
-       'expected user agent name');
+       'expected user_agent name');
+  };
+
+  subtest "TLS options" => sub {
+
+    # Given
+    my %config = (
+      provider             => 'my_provider',
+      id                   => 'my_client_id',
+      client_auth_method   => 'tls_client_auth',
+      tls_client_cert_file => 'my_tls_client_cert_file',
+      tls_client_key_file  => 'my_tls_client_key_file',
+      tls_ca_file          => 'my_tls_ca_file',
+    );
+
+    # When
+    my $client = $class->new(
+      log    => $log,
+      config => \%config,
+    );
+
+    # Then
+    if ($client->user_agent->can('tls_options')) {
+      is($client->user_agent->tls_options->{SSL_cert_file}, 'my_tls_client_cert_file',
+         'expected SSL_cert_file option');
+      is($client->user_agent->tls_options->{SSL_key_file}, 'my_tls_client_key_file',
+         'expected SSL_key_file option');
+      is($client->user_agent->tls_options->{SSL_ca_file}, 'my_tls_ca_file',
+         'expected SSL_ca_file option');
+    }
+    else {
+      is($client->user_agent->cert, 'my_tls_client_cert_file',
+         'expected $ua->cert');
+      is($client->user_agent->key, 'my_tls_client_key_file',
+         'expected $ua->key');
+      is($client->user_agent->ca, 'my_tls_ca_file',
+         'expected $ua->ca');
+    }
   };
 }
 
@@ -2112,6 +2201,46 @@ sub test_introspect_token {
     my %expected_headers = ();
     my @user_agent_sended_args = $test->mocked_user_agent->next_call();
     cmp_deeply(\@user_agent_sended_args,
+               [ 'post', [ $test->mocked_user_agent, 'https://my-provider/introspect', \%expected_headers, 'form', \%expected_args ] ],
+               'expected call to user agent');
+  };
+
+  subtest "introspect_token() - 'tls_client_auth' auth method - inactive token" => sub {
+
+    # Given
+    my %returned_claims = (
+      active => 0,
+    );
+    $test->mock_user_agent(to_mock => { post => \%returned_claims });
+    $test->mock_response_parser();
+    my $client = $class->new(
+      log             => $log,
+      user_agent      => $test->mocked_user_agent,
+      response_parser => $test->mocked_response_parser,
+      config => {
+        provider             => 'my_provider',
+        id                   => 'my_client_id',
+        client_auth_method   => 'tls_client_auth',
+        tls_client_cert_file => 'my_tls_client_cert_file',
+        tls_client_key_file  => 'my_tls_client_key_file',
+        tls_ca_file          => 'my_tls_ca_file',
+      },
+      provider_metadata => { issuer            => 'my_issuer',
+                             introspection_url => 'https://my-provider/introspect' },
+    );
+
+    # When - Then
+    throws_ok {
+      $client->introspect_token(token => 'opaque_token');
+    } qr/OIDC: inactive token/,
+      'exception is thrown';
+    isa_ok($@, 'OIDC::Client::Error::TokenValidation');
+    my %expected_args = (
+      token     => 'opaque_token',
+      client_id => 'my_client_id',
+    );
+    my %expected_headers = ();
+    cmp_deeply([ $test->mocked_user_agent->next_call() ],
                [ 'post', [ $test->mocked_user_agent, 'https://my-provider/introspect', \%expected_headers, 'form', \%expected_args ] ],
                'expected call to user agent');
   };

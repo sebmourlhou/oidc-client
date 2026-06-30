@@ -74,7 +74,7 @@ all use this distribution :
 enum 'StoreMode'             => [qw/session stash cache/];
 enum 'ResponseMode'          => [qw/query form_post/];
 enum 'GrantType'             => [qw/authorization_code client_credentials password refresh_token/];
-enum 'ClientAuthMethod'      => [qw/client_secret_basic client_secret_post client_secret_jwt private_key_jwt none/];
+enum 'ClientAuthMethod'      => [qw/client_secret_basic client_secret_post client_secret_jwt private_key_jwt tls_client_auth none/];
 enum 'TokenValidationMethod' => [qw/jwt introspection/];
 
 with 'OIDC::Client::Role::LoggerWrapper';
@@ -281,6 +281,10 @@ client_secret_jwt
 =item *
 
 private_key_jwt
+
+=item *
+
+tls_client_auth
 
 =item *
 
@@ -635,6 +639,10 @@ private_key_jwt
 
 =item *
 
+tls_client_auth
+
+=item *
+
 none
 
 =back
@@ -843,6 +851,10 @@ client_secret_jwt
 =item *
 
 private_key_jwt
+
+=item *
+
+tls_client_auth
 
 =item *
 
