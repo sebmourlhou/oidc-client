@@ -2899,3 +2899,31 @@ sub test_get_claim_value {
     }
   };
 }
+
+sub test_generate_uuid_string {
+
+  my $UUID_RE = qr/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  # Given
+  my $client = $class->new(
+    log    => $log,
+    config => {
+      provider => 'my_provider',
+      id       => 'my_client_id',
+      secret   => 'my_client_secret',
+    },
+  );
+
+  subtest "generate_uuid_string()" => sub {
+
+    # When
+    my $uuid1 = $client->generate_uuid_string();
+    my $uuid2 = $client->generate_uuid_string();
+
+    # Then
+    cmp_deeply([$uuid1, $uuid2], array_each(re($UUID_RE)),
+               'matches UUID format');
+    isnt($uuid1, $uuid2,
+         'two consecutive calls differ');
+  };
+}

@@ -10,6 +10,7 @@ use Carp qw(croak);
 use List::Util qw(first);
 use Try::Tiny;
 use Crypt::JWT ();
+use Data::UUID ();
 use Mojo::URL;
 use OIDC::Client::Error::TokenValidation;
 use OIDC::Client::ApiUserAgentBuilder qw(build_api_useragent_from_token_response
@@ -1080,8 +1081,7 @@ Generates and returns a UUID string.
 =cut
 
 sub generate_uuid_string {
-  my $self = shift;
-  return $self->uuid_generator->create_str();
+  return Data::UUID->new()->create_str();
 }
 
 

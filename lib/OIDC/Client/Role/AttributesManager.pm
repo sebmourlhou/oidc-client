@@ -6,7 +6,6 @@ use feature 'signatures';
 no warnings 'experimental::signatures';
 use Readonly;
 use Carp qw(croak);
-use Data::UUID;
 use Mojo::File;
 use Mojo::JSON qw(decode_json);
 use Mojo::UserAgent;
@@ -286,13 +285,6 @@ has 'kid_keys' => (
   lazy    => 1,
   clearer => '_clear_kid_keys',
   builder => '_build_kid_keys',
-);
-
-has 'uuid_generator' => (
-  is      => 'ro',
-  isa     => 'Data::UUID',
-  lazy    => 1,
-  default => sub { Data::UUID->new() },
 );
 
 has 'response_parser' => (
