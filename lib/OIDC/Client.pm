@@ -399,7 +399,7 @@ sub get_token {
     }
   }
 
-  $self->log_msg(debug => 'OIDC: calling provider to get token');
+  $self->log_msg(debug => 'OIDC: calling provider to get token from ' . $token_url);
 
   my $res = $self->user_agent->post($token_url, $headers, form => $form)->result;
 

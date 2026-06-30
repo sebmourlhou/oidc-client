@@ -696,7 +696,7 @@ sub test_get_token_authorization_code {
     cmp_deeply($log->msgs,
                [
                  superhashof({
-                   message => 'OIDC: calling provider to get token',
+                   message => 'OIDC: calling provider to get token from https://my-provider/token',
                    level   => 'debug',
                  }),
                ],
