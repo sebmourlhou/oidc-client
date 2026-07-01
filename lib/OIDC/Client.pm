@@ -95,6 +95,7 @@ sub BUILD {
   my $self = shift;
 
   $self->_check_configuration();
+  $self->_check_client_auth_configuration();
   $self->_check_audiences_configuration();
   $self->_check_cache_configuration();
 
