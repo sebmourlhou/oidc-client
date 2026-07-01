@@ -100,9 +100,33 @@ sub test_build_with_exceptions {
     );
   } qr/bad_key/,
     'unexpected key for checked configuration';
+
+  throws_ok {
+    $class->new(
+      log    => $log,
+      config => {
+        provider                   => 'my_provider',
+        id                         => 'my_client_id',
+        token_endpoint_auth_method => 'tls_client_auth',
+      },
+    );
+  } qr/required when tls_client_auth method is used/,
+    'tls_client_auth method without cert file or key file';
+
+  throws_ok {
+    $class->new(
+      log    => $log,
+      config => {
+        provider                   => 'my_provider',
+        id                         => 'my_client_id',
+        token_endpoint_auth_method => 'private_key_jwt',
+      },
+    );
+  } qr/no private_jwk_file, private_jwk, private_key_file or private_key has been configured/,
+    'private_key_jwt method without private key';
 }
 
-sub test_build_secret {
+sub test_secret_attribute {
   subtest "secret from config" => sub {
 
     # Given
@@ -141,14 +165,13 @@ sub test_build_secret {
     $log->empty_ok('no log');
   };
 
-  subtest "'none' auth method" => sub {
+  subtest "no secret from config or environment variable" => sub {
     $log->clear();
 
     # Given
     my %config = (
-      id                         => 'my_client_id',
-      provider                   => 'my_provider',
-      token_endpoint_auth_method => 'none',
+      id       => 'my_client_id',
+      provider => 'my_provider',
     );
     my $client = $class->new(
       log    => $log,
