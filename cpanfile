@@ -17,6 +17,7 @@ requires 'Throwable::Error';
 requires 'Try::Tiny';
 requires 'namespace::autoclean';
 
+test_requires 'Clone';
 test_requires 'Log::Any';
 test_requires 'Log::Any::Test';
 test_requires 'Test::Deep';
@@ -25,6 +26,7 @@ test_requires 'Test::MockModule', '0.177.0';
 test_requires 'Test::MockObject';
 test_requires 'Test::More';
 test_requires 'Test::Warn';
+test_requires 'Scalar::Util';
 
 author_requires 'Test::CPAN::Meta';
 author_requires 'Test::Perl::Critic';
