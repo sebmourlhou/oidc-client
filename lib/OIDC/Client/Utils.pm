@@ -5,6 +5,7 @@ use Moose;
 use Moose::Exporter;
 use MooseX::Params::Validate;
 use Carp qw(croak);
+use Crypt::PRNG qw(random_bytes_b64u);
 
 =encoding utf8
 
@@ -21,6 +22,9 @@ Exports utility functions.
 Moose::Exporter->setup_import_methods(as_is => [qw/get_values_from_space_delimited_string
                                                    reach_data
                                                    affect_data
+                                                   generate_state
+                                                   generate_nonce
+                                                   generate_jti
                                                    delete_data/]);
 
 
@@ -132,6 +136,42 @@ sub delete_data {
   }
 
   return delete $data_tree->{$key_to_delete};
+}
+
+
+=head2 generate_state
+
+Generates a cryptographically secure OAuth 2.0 C<state> value.
+Returns a base64url-encoded string of 22 characters.
+
+=cut
+
+sub generate_state {
+  return random_bytes_b64u(16);
+}
+
+
+=head2 generate_nonce
+
+Generates a cryptographically secure OpenID Connect C<nonce> value.
+Returns a base64url-encoded string of 22 characters.
+
+=cut
+
+sub generate_nonce {
+  return random_bytes_b64u(16);
+}
+
+
+=head2 generate_jti
+
+Generates a cryptographically secure JWT ID (C<jti>) value.
+Returns a base64url-encoded string of 22 characters.
+
+=cut
+
+sub generate_jti {
+  return random_bytes_b64u(16);
 }
 
 

@@ -15,6 +15,7 @@ use OIDC::Client::AccessToken;
 use OIDC::Client::AccessTokenBuilder  qw(build_access_token_from_token_response
                                          build_access_token_from_claims);
 use OIDC::Client::ApiUserAgentBuilder qw(build_api_useragent_from_access_token);
+use OIDC::Client::Utils ();
 use OIDC::Client::Identity;
 use OIDC::Client::Error;
 use OIDC::Client::Error::Authentication;
@@ -159,7 +160,7 @@ after delete_session => sub { shift->after_touching_session->() };
   $c->oidc->redirect_to_authorize();
 
 Redirect the browser to the authorize URL to initiate an authorization code flow.
-The C<state> parameter contains a generated UUID but other data can be added.
+The C<state> parameter contains a generated random string but other data can be added.
 
 The optional hash parameters are:
 
@@ -182,7 +183,7 @@ Hashref which can be used to send extra query parameters.
 
 =item other_state_params
 
-List (arrayref) of strings to add before the auto-generated UUID string to build
+List (arrayref) of strings to add before the auto-generated random string to build
 the C<state> parameter. All these strings are separated by a comma.
 
 =back
@@ -199,8 +200,8 @@ sub redirect_to_authorize {
     other_state_params => { isa => 'ArrayRef[Str]', optional => 1 },
   );
 
-  my $nonce = $self->client->generate_uuid_string();
-  my $state = join ',', (@{$params{other_state_params} || []}, $self->client->generate_uuid_string());
+  my $nonce = OIDC::Client::Utils::generate_nonce();
+  my $state = join ',', (@{$params{other_state_params} || []}, OIDC::Client::Utils::generate_state());
 
   my %args = (
     nonce => $nonce,
@@ -747,7 +748,7 @@ Hashref which can be used to send extra query parameters.
 
 =item other_state_params
 
-List (arrayref) of strings to add before the auto-generated UUID string to build
+List (arrayref) of strings to add before the auto-generated random string to build
 the C<state> parameter. All these strings are separated by a comma.
 
 =back
@@ -765,7 +766,7 @@ sub redirect_to_logout {
     other_state_params       => { isa => 'ArrayRef[Str]', optional => 1 },
   );
 
-  my $state = join ',', (@{$params{other_state_params} || []}, $self->client->generate_uuid_string());
+  my $state = join ',', (@{$params{other_state_params} || []}, OIDC::Client::Utils::generate_state());
 
   my %args = (
     state => $state,

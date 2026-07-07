@@ -10,7 +10,6 @@ use Carp qw(croak);
 use List::Util qw(first);
 use Try::Tiny;
 use Crypt::JWT ();
-use Data::UUID ();
 use Mojo::URL;
 use OIDC::Client::Error::TokenValidation;
 use OIDC::Client::ApiUserAgentBuilder qw(build_api_useragent_from_token_response
@@ -1084,17 +1083,6 @@ sub _decode_token {
       OIDC::Client::Error::TokenValidation->throw("$e");
     }
   };
-}
-
-
-=head2 generate_uuid_string()
-
-Generates and returns a UUID string.
-
-=cut
-
-sub generate_uuid_string {
-  return Data::UUID->new()->create_str();
 }
 
 

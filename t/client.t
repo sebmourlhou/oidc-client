@@ -20,6 +20,9 @@ use OIDCClientTest qw(launch_tests);
 my $class = 'OIDC::Client';
 use_ok $class;
 
+my $mock_utils = Test::MockModule->new('OIDC::Client::Utils');
+$mock_utils->redefine(generate_jti => sub { return 'fake_jti' });
+
 my $test = OIDCClientTest->new();
 
 launch_tests();
@@ -931,7 +934,7 @@ sub test_get_token_authorization_code {
         iss => 'my_client_id',
         sub => 'my_client_id',
         aud => 'https://my-provider/token',
-        jti => re('\w+'),
+        jti => 'fake_jti',
         iat => re('\d+'),
         exp => re('\d+'),
       },
@@ -989,7 +992,7 @@ sub test_get_token_authorization_code {
         iss => 'my_client_id',
         sub => 'my_client_id',
         aud => 'https://my-provider/token',
-        jti => re('\w+'),
+        jti => 'fake_jti',
         iat => re('\d+'),
         exp => re('\d+'),
       },
@@ -1373,7 +1376,7 @@ sub test_get_token_refresh_token {
         iss => 'my_client_id',
         sub => 'my_client_id',
         aud => 'https://my-provider/token',
-        jti => re('\w+'),
+        jti => 'fake_jti',
         iat => re('\d+'),
         exp => re('\d+'),
       },
@@ -2149,7 +2152,7 @@ sub test_introspect_token {
         iss => 'my_client_id',
         sub => 'my_client_id',
         aud => 'https://my-provider/introspect',
-        jti => re('\w+'),
+        jti => 'fake_jti',
         iat => re('\d+'),
         exp => re('\d+'),
       },
@@ -2210,7 +2213,7 @@ sub test_introspect_token {
         iss => 'my_client_id',
         sub => 'my_client_id',
         aud => 'https://my-provider/introspect',
-        jti => re('\w+'),
+        jti => 'fake_jti',
         iat => re('\d+'),
         exp => re('\d+'),
       },
@@ -2690,7 +2693,7 @@ sub test_exchange_token {
         iss => 'my_client_id',
         sub => 'my_client_id',
         aud => 'my_client_assertion_audience',
-        jti => re('\w+'),
+        jti => 'fake_jti',
         iat => re('\d+'),
         exp => re('\d+'),
       },
@@ -2750,7 +2753,7 @@ sub test_exchange_token {
         iss => 'my_client_id',
         sub => 'my_client_id',
         aud => 'my_client_assertion_audience',
-        jti => re('\w+'),
+        jti => 'fake_jti',
         iat => re('\d+'),
         exp => re('\d+'),
       },
@@ -3049,33 +3052,5 @@ sub test_get_claim_value {
       } qr/OIDC: no claim key in config for name 'first_name'/,
         'claim key not present in config';
     }
-  };
-}
-
-sub test_generate_uuid_string {
-
-  my $UUID_RE = qr/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-  # Given
-  my $client = $class->new(
-    log    => $log,
-    config => {
-      provider => 'my_provider',
-      id       => 'my_client_id',
-      secret   => 'my_client_secret',
-    },
-  );
-
-  subtest "generate_uuid_string()" => sub {
-
-    # When
-    my $uuid1 = $client->generate_uuid_string();
-    my $uuid2 = $client->generate_uuid_string();
-
-    # Then
-    cmp_deeply([$uuid1, $uuid2], array_each(re($UUID_RE)),
-               'matches UUID format');
-    isnt($uuid1, $uuid2,
-         'two consecutive calls differ');
   };
 }
