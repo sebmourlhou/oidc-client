@@ -667,26 +667,30 @@ sub test_auth_url_returning_string {
     {
       # When
       my $auth_url = $client->auth_url(
-        redirect_uri => 'my_redirect_uri',
-        state        => 'my_state',
-        scope        => 'my scope',
-        audience     => 'my_audience',
-        extra_params => { other_param1 => 'my_other_param1',
-                          other_param2 => 'my_other_param2' },
+        redirect_uri          => 'my_redirect_uri',
+        state                 => 'my_state',
+        scope                 => 'my scope',
+        audience              => 'my_audience',
+        code_challenge        => 'my_code_challenge',
+        code_challenge_method => 'plain',
+        extra_params          => { other_param1 => 'my_other_param1',
+                                   other_param2 => 'my_other_param2' },
       );
 
       # Then
       my $mojo_auth_url = Mojo::URL->new($auth_url);
 
       my %expected_query_params = (
-        response_type => 'code',
-        client_id     => 'my_client_id',
-        redirect_uri  => 'my_redirect_uri',
-        state         => 'my_state',
-        scope         => 'my scope',
-        audience      => 'my_audience',
-        other_param1  => 'my_other_param1',
-        other_param2  => 'my_other_param2',
+        response_type         => 'code',
+        client_id             => 'my_client_id',
+        redirect_uri          => 'my_redirect_uri',
+        state                 => 'my_state',
+        scope                 => 'my scope',
+        audience              => 'my_audience',
+        code_challenge        => 'my_code_challenge',
+        code_challenge_method => 'plain',
+        other_param1          => 'my_other_param1',
+        other_param2          => 'my_other_param2',
       );
       cmp_deeply($mojo_auth_url->query->to_hash, \%expected_query_params,
                  'expected query params with maximum arguments');
@@ -790,6 +794,56 @@ sub test_get_token_authorization_code {
 
     # When
     my $token_response = $client->get_token(
+      code          => 'my_code',
+      code_verifier => 'my_code_verifier',
+      redirect_uri  => 'my_redirect_uri'
+    );
+
+    # Then
+    is($token_response->access_token, 'my_access_token',
+       'expected access token');
+
+    my %expected_args = (
+      grant_type    => 'authorization_code',
+      client_id     => 'my_client_id',
+      client_secret => 'my_client_secret',
+      code          => 'my_code',
+      code_verifier => 'my_code_verifier',
+      redirect_uri  => 'my_redirect_uri',
+    );
+    cmp_deeply([ $test->mocked_user_agent->next_call() ],
+               [ 'post', [ $test->mocked_user_agent, 'https://my-provider/token', {}, 'form', \%expected_args ] ],
+               'expected call to user agent');
+    cmp_deeply($log->msgs,
+               [
+                 superhashof({
+                   message => 'OIDC: calling provider to get token from https://my-provider/token',
+                   level   => 'debug',
+                 }),
+               ],
+               'expected log');
+  };
+
+  subtest "get_token() authorization_code grant type with missing code_verfier" => sub {
+    $log->clear();
+
+    # Given
+    my $client = $class->new(
+      log                   => $log,
+      user_agent            => $test->mocked_user_agent,
+      token_response_parser => $test->mocked_token_response_parser,
+      kid_keys => {},
+      config => {
+        provider                   => 'my_provider',
+        id                         => 'my_client_id',
+        secret                     => 'my_client_secret',
+        token_endpoint_auth_method => 'client_secret_post',
+      },
+      provider_metadata => { token_url => 'https://my-provider/token' },
+    );
+
+    # When
+    my $token_response = $client->get_token(
       code         => 'my_code',
       redirect_uri => 'my_redirect_uri'
     );
@@ -811,11 +865,15 @@ sub test_get_token_authorization_code {
     cmp_deeply($log->msgs,
                [
                  superhashof({
+                   message => 'OIDC: PKCE is enabled but no code_verifier provided in get_token()',
+                   level   => 'warning',
+                 }),
+                 superhashof({
                    message => 'OIDC: calling provider to get token from https://my-provider/token',
                    level   => 'debug',
                  }),
                ],
-               'expected log');
+               'expected logs');
   };
 
   subtest "get_token() authorization_code grant type from config + client_secret_basic" => sub {

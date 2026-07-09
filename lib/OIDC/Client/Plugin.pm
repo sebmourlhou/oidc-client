@@ -160,7 +160,15 @@ after delete_session => sub { shift->after_touching_session->() };
   $c->oidc->redirect_to_authorize();
 
 Redirect the browser to the authorize URL to initiate an authorization code flow.
+
 The C<state> parameter contains a generated random string but other data can be added.
+
+Another random string is generated and included in the C<nonce> parameter. This helps
+prevent replay attacks by binding the resulting ID token to the user's session.
+
+When PKCE is enabled, a code verifier/challenge pair is generated. The verifier is
+stored in the session, and the challenge/challenge methode are included as parameters
+in the authorization request.
 
 The optional hash parameters are:
 
@@ -208,6 +216,15 @@ sub redirect_to_authorize {
     state => $state,
   );
 
+  my $code_verifier;
+  if ($self->client->use_pkce) {
+    $self->log_msg(debug => "OIDC: generating code_verifier and code_challenge for PKCE");
+    $code_verifier = OIDC::Client::Utils::generate_code_verifier();
+    my $code_challenge_method = $self->client->pkce_code_challenge_method;
+    $args{code_challenge} = OIDC::Client::Utils::generate_code_challenge($code_verifier, $code_challenge_method);
+    $args{code_challenge_method} = $code_challenge_method;
+  }
+
   if (my $redirect_uri = $params{redirect_uri} || $self->login_redirect_uri) {
     $args{redirect_uri} = $redirect_uri;
   }
@@ -221,8 +238,8 @@ sub redirect_to_authorize {
   $self->write_session(['oidc_auth', $state], {
     nonce      => $nonce,
     provider   => $self->client->provider,
-    target_url => $params{target_url} ? $params{target_url}
-                                      : $self->current_url,
+    target_url => $params{target_url} ? $params{target_url} : $self->current_url,
+    $code_verifier ? (code_verifier => $code_verifier) : (),
   });
 
   $self->log_msg(debug => "OIDC: redirecting to provider : $authorize_url");
@@ -277,10 +294,12 @@ sub get_token {
       OIDC::Client::Error::Provider->throw({response_parameters => $self->request_params});
     }
     $auth_data = $self->_extract_auth_data();
+    my $code_verifier = $auth_data->{code_verifier};  # PKCE
     my $redirect_uri = $params{redirect_uri} || $self->login_redirect_uri;
     $token_response = $self->client->get_token(
       code => $self->request_params->{code},
-      $redirect_uri ? (redirect_uri => $redirect_uri) : (),
+      $code_verifier ? (code_verifier => $code_verifier) : (),
+      $redirect_uri  ? (redirect_uri  => $redirect_uri)  : (),
     );
   }
   else {

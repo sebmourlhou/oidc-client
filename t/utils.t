@@ -12,13 +12,17 @@ use lib "$Bin/lib";
 use OIDCClientTest qw(launch_tests);
 
 my $B64_URL_ENCODED_22_CHAR_RE = qr/^[A-Za-z0-9_-]{22,22}$/i;
+my $B64_URL_ENCODED_43_CHAR_RE = qr/^[A-Za-z0-9_-]{43,43}$/i;
+
 use_ok 'OIDC::Client::Utils', qw/get_values_from_space_delimited_string
                                  reach_data
                                  affect_data
+                                 delete_data
                                  generate_state
                                  generate_nonce
                                  generate_jti
-                                 delete_data/;
+                                 generate_code_verifier
+                                 generate_code_challenge/;
 
 my $test = OIDCClientTest->new();
 
@@ -446,26 +450,80 @@ sub test_generate_jti {
 }
 
 
+sub test_generate_code_verifier {
+  note 'generate_code_verifier()';
+
+  subtest "expected format and unicity" => sub {
+
+    # When
+    my $code_verfier1 = generate_code_verifier();
+    my $code_verfier2 = generate_code_verifier();
+
+    # Then
+    cmp_deeply([$code_verfier1, $code_verfier2], array_each(re($B64_URL_ENCODED_43_CHAR_RE)),
+               'only Base64URL characters and always 43 characters');
+    isnt($code_verfier1, $code_verfier2,
+         'two consecutive calls differ');
+  };
+}
 
 
+sub test_generate_code_challenge {
+  note 'generate_code_challenge()';
 
+  subtest "plain method" => sub {
 
+    # Given
+    my $code_verifier = 'my_code_verifier';
 
+    # When
+    my $code_challenge = generate_code_challenge($code_verifier, 'plain');
 
+    # Then
+    is($code_challenge, $code_verifier,
+       'code challenge equals code verifier');
+  };
 
+  subtest "S256 method - RFC 7636 test case" => sub {
 
+    # Given
+    # Reference values from RFC 7636 Appendix B
+    # https://datatracker.ietf.org/doc/html/rfc7636#appendix-B
+    my $code_verifier           = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
+    my $expected_code_challenge = 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM';
 
+    # When
+    my $code_challenge = generate_code_challenge($code_verifier, 'S256');
 
+    # Then
+    is($code_challenge, $expected_code_challenge,
+       'expected code challenge');
+  };
 
+  subtest 'S256 method - deterministic output' => sub {
 
+    # Given
+    my $code_verifier = 'same-verifier-each-time';
 
+    # When
+    my $code_challenge1 = generate_code_challenge($code_verifier, 'S256');
+    my $code_challenge2 = generate_code_challenge($code_verifier, 'S256');
 
+    # Then
+    is($code_challenge1, $code_challenge2,
+       'same verifier produces same challenge');
+  };
 
+  subtest 'S256 method - different verifiers produce different challenges' => sub {
 
+    # Given
+    my $code_verifier1 = 'verifier-one';
+    my $code_verifier2 = 'verifier-two';
 
+    my $code_challenge1 = generate_code_challenge($code_verifier1, 'S256');
+    my $code_challenge2 = generate_code_challenge($code_verifier2, 'S256');
 
-
-
-
-
-
+    isnt($code_challenge1, $code_challenge2,
+         'different verifiers produce different challenges');
+  };
+}
